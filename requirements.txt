@@ -5,3 +5,5 @@ psycopg2-binary
 dj-database-url
 sqlparse==0.5.5
 tzdata==2025.3
+psycopg2-binary
+dj-database-url
