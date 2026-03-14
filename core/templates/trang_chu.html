@@ -55,8 +55,17 @@
             </div>
             <div>
                 <span class="fs-4 me-3">🛒</span>
-                <a href="/admin" class="btn btn-outline-dark btn-sm me-2">Đăng nhập</a>
-                <a href="#" class="btn btn-orange btn-sm">Đăng ký</a>
+
+                {% if user.is_authenticated %}
+                    <span class="me-2">Xin chào, <b>{{ user.username }}</b></span>
+                    <form action="/logout/" method="post" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-outline-dark btn-sm">Đăng xuất</button>
+                    </form>
+                {% else %}
+                    <a href="/login" class="btn btn-outline-dark btn-sm me-2">Đăng nhập</a>
+                    <a href="#" class="btn btn-orange btn-sm">Đăng ký</a>
+                {% endif %}
             </div>
         </div>
     </nav>
