@@ -2,6 +2,8 @@ from django.shortcuts import render, get_object_or_404
 from django.shortcuts import render
 from .models import MonAn, LoaiMon  # Nhớ gọi thêm LoaiMon nhé
 
+from django.shortcuts import redirect
+
 def trang_chu(request):
     # Lấy toàn bộ Loại món và Món ăn từ CSDL
     danh_sach_loai = LoaiMon.objects.all()
@@ -19,3 +21,9 @@ def chi_tiet_mon(request, mon_id):
     mon = get_object_or_404(MonAn, id=mon_id)
     # Gửi dữ liệu món ăn đó sang trang HTML mới
     return render(request, 'chi_tiet_mon.html', {'mon': mon})
+
+def redirect_after_login(request):
+    if request.user.is_staff:   # admin
+        return redirect('/admin')
+    else:                       # user thường
+        return redirect('/')
