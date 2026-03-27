@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -13,9 +14,8 @@
         .btn-outline-orange { border: 1px solid #e65c00; color: #e65c00; }
         .btn-outline-orange:hover { background-color: #e65c00; color: white; }
         
-        /* Phần Banner (Hero) */
         .hero-section {
-            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('https://images.unsplash.com/photo-1514933651103-005eec06c04b?q=80&w=1934&auto=format&fit=crop') center/cover;
+            background: linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.4)), url('{% static "image/back.jpg" %}') center/cover;
             color: white;
             padding: 100px 0;
             text-align: center;
@@ -24,15 +24,12 @@
         .card-img-top { height: 200px; object-fit: cover; background-color: #e9ecef; }
         .footer { background-color: #333; color: white; padding: 40px 0 20px; }
         
-        /* --- CSS MỚI CHO TABS --- */
-        /* Style mặc định cho Tab lúc chưa bấm */
         .nav-pills .nav-link {
             color: #333 !important;
             background-color: white !important;
             font-weight: bold;
             border-radius: 50px;
         }
-        /* Style cho Tab khi được bấm (tự động nhận class active) */
         .nav-pills .nav-link.active {
             background-color: #e65c00 !important;
             color: white !important;
@@ -45,13 +42,13 @@
     <nav class="navbar navbar-expand-lg bg-white shadow-sm py-3">
         <div class="container">
             <a class="navbar-brand text-orange fs-3" href="#">
-                <img src="/static/image/logo1.png" height="45">
+                <img src="{% static 'image/logo1.png' %}" height="45" alt="Logo">
             </a>
             <div class="collapse navbar-collapse justify-content-center">
                 <ul class="navbar-nav fw-medium">
-                    <li class="nav-item"><a class="nav-link text-dark mx-2" href="#">Trang chủ</a></li>
-                    <li class="nav-item"><a class="nav-link text-dark mx-2" href="#">Thực đơn</a></li>
-                    <li class="nav-item"><a class="nav-link text-dark mx-2" href="#">Đặt bàn</a></li>
+                    <li class="nav-item"><a class="nav-link text-dark mx-2" href="{% url 'trang_chu' %}">Trang chủ</a></li>
+                    <li class="nav-item"><a class="nav-link text-dark mx-2" href="{% url 'thuc_don' %}">Thực đơn</a></li>
+                    <li class="nav-item"><a class="nav-link text-dark mx-2" href="{% url 'dat_ban' %}">Đặt bàn</a></li>
                     <li class="nav-item"><a class="nav-link text-dark mx-2" href="#">Liên hệ</a></li>
                 </ul>
             </div>
@@ -59,24 +56,44 @@
                 <span class="fs-4 me-3">🛒</span>
 
                 {% if user.is_authenticated %}
-                    <span class="me-2">Xin chào, <b>{{ user.username }}</b></span>
+                    <span>Xin chào, 
+                        {% if request.user.is_authenticated %}
+                            {% if request.user.is_staff %}
+                                <a href="/admin/" style="color: #d35400; font-weight: bold; text-decoration: none;">
+                                    {{ request.user.username }}
+                                </a>
+                            {% else %}
+                                <strong style="color: #333;">{{ request.user.username }}</strong>
+                            {% endif %}
+                        {% else %}
+                            <a href="/login/">Khách</a>
+                        {% endif %}
+                    </span>
                     <form action="/logout/" method="post" style="display:inline;">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-outline-dark btn-sm">Đăng xuất</button>
+                        <button type="submit" class="btn btn-outline-dark btn-sm ms-2">Đăng xuất</button>
                     </form>
                 {% else %}
-                    <a href="/login" class="btn btn-outline-dark btn-sm me-2">Đăng nhập</a>
+                    <a href="/login/" class="btn btn-outline-dark btn-sm me-2">Đăng nhập</a>
                     <a href="#" class="btn btn-orange btn-sm">Đăng ký</a>
                 {% endif %}
             </div>
         </div>
     </nav>
 
+    {% if request.user.is_authenticated and request.user.is_staff %}
+    <div class="bg-warning text-dark text-center py-2 shadow-sm">
+        <span class="fw-bold me-3">🛠️ Khu vực dành cho Nhân Viên / Quản Lý</span>
+        <a href="/nhan-vien/" class="btn btn-danger btn-sm fw-bold px-4 py-1 rounded-pill shadow">
+            🚀 VÀO MÀN HÌNH LÀM VIỆC (POS)
+        </a>
+    </div>
+    {% endif %}
     <div class="hero-section">
         <div class="container">
             <h1 class="display-5 fw-bold mb-4">HƯƠNG VỊ TUYỆT HẢO – PHỤC VỤ TẬN TÂM</h1>
-            <button class="btn btn-orange btn-lg px-4 me-3">Xem Thực Đơn</button>
-            <button class="btn btn-warning btn-lg px-4 text-dark fw-bold">Đặt Bàn Ngay</button>
+            <a href="{% url 'thuc_don' %}" class="btn btn-orange btn-lg px-4 me-3">Xem Thực Đơn</a>
+            <a href="{% url 'dat_ban' %}" class="btn btn-warning btn-lg px-4 text-dark fw-bold">Đặt Bàn Ngay</a>
         </div>
     </div>
 

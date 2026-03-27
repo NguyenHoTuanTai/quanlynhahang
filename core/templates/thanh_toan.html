@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Thanh Toán Giả Lập</title>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; margin-top: 50px; background-color: #f8f9fa;}
+        .box { border: 2px dashed #ffc107; padding: 30px; display: inline-block; background: white; border-radius: 10px;}
+        .btn { background: #28a745; color: white; padding: 15px 30px; border: none; font-size: 18px; cursor: pointer; border-radius: 5px; margin-top: 20px;}
+        .btn:hover { background: #218838; }
+        img { max-width: 250px; margin: 20px 0; border: 1px solid #ddd; border-radius: 10px;}
+    </style>
+</head>
+<body>
+
+    <div class="box">
+        <h2>Chuyển khoản đặt cọc (MOCK)</h2>
+        <p>Khách hàng: <strong>{{ don.ten_khach_hang }}</strong></p>
+        <p>Số tiền cần cọc: <strong style="color: red; font-size: 24px;">{{ don.tong_tien_coc }} VNĐ</strong></p>
+        
+        <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg" alt="Mã QR Fake">
+        
+        <p><i>(Quét mã trên để chuyển tiền giả lập)</i></p>
+
+        <form method="POST">
+            {% csrf_token %}
+            <button type="submit" class="btn">💳 Tôi Đã Chuyển Khoản (Bấm phát ăn luôn)</button>
+        </form>
+    </div>
+
+</body>
+</html>
