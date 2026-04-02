@@ -4,7 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <title>Thực đơn</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
 
     <style>
         body { background: #f8f8f8; }
@@ -77,26 +78,56 @@
             </ul>
         </div>
         <div>
-            <span class="fs-4 me-3">🛒</span>
-
             {% if user.is_authenticated %}
-                <span>Xin chào, 
-                    {% if request.user.is_authenticated %}
-                        {% if request.user.is_staff %}
-                            <a href="/admin/" style="color: #d35400; font-weight: bold; text-decoration: none;">
-                                {{ request.user.username }}
-                            </a>
-                        {% else %}
-                            <strong style="color: #333;">{{ request.user.username }}</strong>
-                        {% endif %}
-                    {% else %}
-                        <a href="/login/">Khách</a>
+            <div class="dropdown">
+                <button class="btn btn-outline-dark btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-person-circle"></i> {{ request.user.username }}
+                </button>
+
+                <ul class="dropdown-menu dropdown-menu-end shadow">
+                    {% if request.user.is_staff %}
+                    <li>
+                        <a class="dropdown-item text-warning fw-bold" href="/admin/">
+                            Quản trị hệ thống
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item text-warning fw-bold" href="/nhan-vien/">
+                            Quản lý nhà hàng
+                        </a>
+                    </li>
+                    <li><hr class="dropdown-divider"></li>
                     {% endif %}
-                </span>
-                <form action="/logout/" method="post" style="display:inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-outline-dark btn-sm ms-2">Đăng xuất</button>
-                </form>
+                    
+                    <li>
+                        <a class="dropdown-item" href="/tai-khoan/">
+                            Thông tin tài khoản
+                        </a>
+                    </li>
+
+                    <li>
+                        <a class="dropdown-item" href="/lich-su-dat/">
+                            Lịch sử đặt bàn
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="/danh-gia/">
+                            Viết đánh giá
+                        </a>
+                    </li>
+
+                    <li><hr class="dropdown-divider"></li>
+
+                    <li>
+                        <form action="/logout/" method="post" class="m-0">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item text-danger">
+                                Đăng xuất
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
             {% else %}
                 <a href="/login/" class="btn btn-outline-dark btn-sm me-2">Đăng nhập</a>
                 <a href="#" class="btn btn-orange btn-sm">Đăng ký</a>
@@ -276,4 +307,5 @@
 </div>
 
 </body>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </html>

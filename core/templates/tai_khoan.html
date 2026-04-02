@@ -1,0 +1,170 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Tài khoản</title>
+
+    <!-- Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body {
+            background-color: #f5f6fa;
+        }
+        .card {
+            border-radius: 15px;
+        }
+    </style>
+</head>
+{% include 'navbar_user.html' %}
+<body>
+
+<div class="container py-5">
+    <div class="row g-4">
+
+        <!-- Cột trái -->
+        <div class="col-md-4">
+            <div class="card shadow-lg text-center p-4 border-0">
+                
+                <!-- Avatar -->
+                <div class="mb-3">
+                    <div class="rounded-circle d-flex align-items-center justify-content-center mx-auto text-white fw-bold"
+                         style="width: 110px; height: 110px; font-size: 42px;
+                                background: linear-gradient(135deg, #ff7e5f, #ffb347);">
+                        {{ user.username|make_list|first|upper }}
+                    </div>
+                </div>
+        
+                <h5 class="fw-bold">{{ user.username }}</h5>
+                <p class="text-muted">{{ user.email }}</p>
+        
+                <!-- Điểm tích lũy -->
+                <div class="mt-3 p-3 rounded
+                {% if profile.diem_tich_luy >= 1500 %}
+                    bg-dark text-white
+                {% elif profile.diem_tich_luy >= 500 %}
+                    bg-warning text-dark
+                {% else %}
+                    bg-light
+                {% endif %}
+                " 
+                style="border: 1px solid #ddd;">
+
+                <h6 class="mb-1 
+                    {% if profile.diem_tich_luy >= 1500 %}
+                        text-white-50
+                    {% else %}
+                        text-muted
+                    {% endif %}
+                ">
+                    Hạng thành viên
+                </h6>
+
+                <h3 class="fw-bold mb-1">
+                    {% if profile.diem_tich_luy >= 1500 %}
+                        Kim cương
+                    {% elif profile.diem_tich_luy >= 500 %}
+                        Vàng
+                    {% else %}
+                        Bạc
+                    {% endif %}
+                </h3>
+
+                <p class="mb-2 small">
+                    {% if profile.diem_tich_luy >= 1500 %}
+                        Bạn là khách VIP, được giảm giá cao nhất
+                    {% elif profile.diem_tich_luy >= 500 %}
+                        Bạn đang nhận ưu đãi giảm giá hấp dẫn, tích 1500 điểm để lên hạng kim cương
+                    {% else %}
+                        Hãy tích 500 điểm để lên hạng Vàng
+                    {% endif %}
+                </p>
+
+                <hr class="my-2">
+
+                <h6 class="mb-1 
+                    {% if profile.diem_tich_luy >= 1500 %}
+                        text-white-50
+                    {% else %}
+                        text-muted
+                    {% endif %}
+                ">
+                    Điểm tích lũy
+                </h6>
+
+                <h4 class="fw-bold mb-0">
+                    {{ profile.diem_tich_luy }}
+                </h4>
+            </div>
+        
+            </div>
+        </div>
+
+        <!-- Cột phải -->
+        <div class="col-md-8">
+
+            <!-- Thông tin -->
+            <div class="card shadow-lg p-4 border-0 mb-4">
+                <h4 class="fw-bold mb-4">Thông tin tài khoản</h4>
+
+                <form method="POST">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Tên đăng nhập</label>
+                        <input type="text" class="form-control bg-light" value="{{ user.username }}" disabled>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Email</label>
+                        <input type="email" name="email" class="form-control" value="{{ user.email }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Số điện thoại</label>
+                        <input type="text" name="so_dien_thoai" class="form-control" value="{{ profile.so_dien_thoai }}">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Địa chỉ</label>
+                        <input type="text" name="dia_chi" class="form-control" value="{{ profile.dia_chi }}">
+                    </div>
+
+                    <button class="mb-3 btn w-100 text-white fw-semibold"
+                            style="background: linear-gradient(135deg, #ff7e5f, #ffb347);">
+                        Cập nhật thông tin
+                    </button>                    
+                </form>
+            </div>
+            <div class="card shadow-lg p-4 border-0">
+                <h5 class="fw-bold mb-3">Đổi mật khẩu</h5>
+
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="doi_mat_khau" value="1">
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mật khẩu cũ</label>
+                        <input type="password" name="mat_khau_cu" class="form-control">
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold">Mật khẩu mới</label>
+                        <input type="password" name="mat_khau_moi" class="form-control">
+                    </div>
+
+                    <button class="mb-3 btn w-100 text-white fw-semibold"
+                            style="background: linear-gradient(135deg, #ff7e5f, #ffb347);">
+                        Đổi mật khẩu
+                    </button>
+                </form>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+</body>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.1/dist/js/bootstrap.bundle.min.js"></script>
+</html>

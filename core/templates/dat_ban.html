@@ -158,16 +158,16 @@
 
         <div class="form-group">
             <label>Số điện thoại (*)</label>
-            <input type="tel" name="so_dien_thoai" required pattern="[0-9]{9,10}" 
+            <input type="tel" name="so_dien_thoai" required pattern="0[0-9]{9}"" 
                    oninput="this.value = this.value.replace(/[^0-9]/g, ''); this.setCustomValidity('');" 
-                   oninvalid="this.setCustomValidity('Vui lòng chỉ nhập số, độ dài từ 9 đến 10 chữ số.')"
+                   oninvalid="this.setCustomValidity('Vui lòng chỉ nhập số, độ dài từ 10 chữ số.')"
                    placeholder="0xxxxxxxx">
         </div>
 
         <div style="display: flex; gap: 30px;">
             <div class="form-group" style="flex: 1;">
                 <label>Ngày đến (*)</label>
-                <input type="date" name="ngay_dat" id="ngay_dat" required>
+                <input type="date" name="ngay_dat" id="ngay_dat" class="form-control" required>
             </div>
             <div class="form-group" style="flex: 1;">
                 <label>Giờ đến (*)</label>
@@ -227,7 +227,7 @@ function selectDeposit(amount, el){
     }
 }
 
-// 🔥 CHECK SỐ NGƯỜI
+// CHECK SỐ NGƯỜI
 function checkNguoi(){
     let n = parseInt(soNguoiInput.value) || 0;
 
@@ -300,5 +300,38 @@ function validateForm(){
 }
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var dateInput = document.getElementById('ngay_dat');
+    
+
+    var today = new Date();
+    var dd = String(today.getDate()).padStart(2, '0');
+    var mm = String(today.getMonth() + 1).padStart(2, '0');
+    var yyyy = today.getFullYear();
+    var todayStr = yyyy + '-' + mm + '-' + dd;
+    dateInput.setAttribute('min', todayStr);
+
+
+    dateInput.addEventListener('blur', function() {
+        
+        if (this.validity.badInput) {
+            alert("Lỗi: Ngày tháng bạn nhập KHÔNG TỒN TẠI trên lịch!");
+            this.value = ""; 
+            return; 
+        }
+
+        if (this.value) {
+            var selectedDate = new Date(this.value);
+            var currentDate = new Date(todayStr);
+
+            if (selectedDate < currentDate) {
+                alert("Lỗi: Không thể đặt bàn cho ngày trong quá khứ!");
+                this.value = ""; 
+            }
+        }
+    });
+});
+</script>
 </body>
 </html>

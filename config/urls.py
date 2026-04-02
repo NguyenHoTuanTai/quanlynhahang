@@ -20,5 +20,11 @@ urlpatterns = [
     path('dashboard/', views.man_hinh_nhan_vien, name='dashboard'),
     path('thuc-don/', views.thuc_don, name='thuc_don'),
     path('ban/<int:ban_id>/', views.chi_tiet_ban, name='chi_tiet_ban'),
+    path('hoan-tat-dat-ban/', views.hoan_tat_dat_ban, name='hoan_tat_dat_ban'),
+    path('register/', views.register, name='register'),
+    path('forgot-password/', views.forgot_password, name='forgot_password'),
+    path('tai-khoan/', views.tai_khoan, name='tai_khoan'),
+    path('danh-gia/', views.danh_gia_view, name='danh_gia_view'),
+    path('lich-su-dat/', views.lich_su_dat_ban_view, name='lich_su_dat_ban'),
 ]
 
