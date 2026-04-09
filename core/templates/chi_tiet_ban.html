@@ -1,169 +1,192 @@
 <!DOCTYPE html>
+
 <html lang="vi">
 <head>
-    <meta charset="UTF-8">
-    <title>Chi tiết bàn</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <style>
-        body { background: #f5f5f5; }
+<title>Chi tiết bàn</title>
 
-        .card-box {
-            background: white;
-            border-radius: 15px;
-            padding: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        }
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
 
-        .item-row {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            border-bottom: 1px solid #eee;
-            padding: 12px 0;
-        }
+<style>
+body { background: #f5f5f5; }
 
-        .item-row:last-child {
-            border-bottom: none;
-        }
+/* BOX */
+.card-box {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
 
-        .item-info {
-            flex: 1;
-        }
+/* ITEM */
+.item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #eee;
+    padding: 12px 0;
+    gap: 10px;
+    flex-wrap: wrap;
+}
 
-        .quantity-box {
-            min-width: 120px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 8px;
-        }
+.item-info {
+    flex: 1;
+    min-width: 150px;
+}
 
-        .quantity-box button {
-            width: 32px;
-            height: 32px;
-            padding: 0;
-        }
+/* QUANTITY */
+.quantity-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
 
-        .btn-orange {
-            background: #ff7a00;
-            color: white;
-            border: none;
-        }
+.quantity-box button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+}
 
-        .btn-orange:hover {
-            background: #e66900;
-        }
-    </style>
+/* BUTTON */
+.btn-orange {
+    background: #ff7a00;
+    color: white;
+}
+.btn-orange:hover {
+    background: #e66900;
+}
+
+/* MOBILE */
+@media (max-width: 576px){
+
+    .item-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .quantity-box {
+        justify-content: flex-start;
+    }
+
+}
+</style>
+
 </head>
 
 <body>
 
-<div class="container py-4">
+<div class="container py-3 py-md-4">
 
-    <!-- HEADER -->
-    <div class="d-flex justify-content-between align-items-center mb-3">
-        <h3>Bàn {{ ban.so_ban }}</h3>
 
-        <a href="{% url 'thuc_don' %}?ban_id={{ ban.id }}" class="btn btn-orange">
-            Thêm món
-        </a>
-    </div>
+<!-- HEADER -->
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h4 class="mb-0">Bàn {{ ban.so_ban }}</h4>
 
-    <div class="row">
+    <a href="{% url 'thuc_don' %}?ban_id={{ ban.id }}" class="btn btn-orange">
+        + Thêm món
+    </a>
+</div>
 
-        <!-- LEFT -->
-        <div class="col-md-8">
-            <div class="card-box">
+<div class="row g-3">
 
-                <h5 class="mb-3">Món đã gọi</h5>
+    <!-- LEFT -->
+    <div class="col-12 col-lg-8">
+        <div class="card-box">
 
-                {% if don and don.chitietdonhang_set.all %}
-                    
-                    {% for ct in don.chitietdonhang_set.all %}
-                    <div class="item-row">
+            <h5 class="mb-3">Món đã gọi</h5>
 
-                        <!-- TÊN MÓN -->
-                        <div class="item-info">
-                            <strong>{{ ct.mon_an.ten_mon }}</strong><br>
-                            <small class="text-muted">
-                                {{ ct.gia_luc_ban|floatformat:0 }} đ
-                            </small>
-                        </div>
+            {% if don and don.chitietdonhang_set.all %}
+                
+                {% for ct in don.chitietdonhang_set.all %}
+                <div class="item-row">
 
-                        <!-- SỐ LƯỢNG -->
-                        <div class="quantity-box">
+                    <!-- INFO -->
+                    <div class="item-info">
+                        <strong>{{ ct.mon_an.ten_mon }}</strong><br>
+                        <small class="text-muted">
+                            {{ ct.gia_luc_ban|floatformat:0 }} đ
+                        </small>
+                    </div>
 
-                            <form method="POST">
-                                {% csrf_token %}
-                                <input type="hidden" name="mon_id" value="{{ ct.mon_an.id }}">
-                                <button name="action" value="giam" class="btn btn-outline-secondary btn-sm">-</button>
-                            </form>
+                    <!-- QUANTITY -->
+                    <div class="quantity-box">
 
-                            <span class="fw-bold text-center" style="min-width:20px;">
-                                {{ ct.so_luong }}
-                            </span>
-
-                            <form method="POST">
-                                {% csrf_token %}
-                                <input type="hidden" name="mon_id" value="{{ ct.mon_an.id }}">
-                                <button name="action" value="tang" class="btn btn-outline-secondary btn-sm">+</button>
-                            </form>
-
-                        </div>
-
-                        <!-- XOÁ -->
                         <form method="POST">
                             {% csrf_token %}
                             <input type="hidden" name="mon_id" value="{{ ct.mon_an.id }}">
-                            <button name="action" value="remove" class="btn btn-danger btn-sm ms-2">
-                                ❌
-                            </button>
+                            <button name="action" value="giam" class="btn btn-outline-secondary btn-sm">-</button>
+                        </form>
+
+                        <span class="fw-bold text-center" style="min-width:20px;">
+                            {{ ct.so_luong }}
+                        </span>
+
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="mon_id" value="{{ ct.mon_an.id }}">
+                            <button name="action" value="tang" class="btn btn-outline-secondary btn-sm">+</button>
                         </form>
 
                     </div>
-                    {% endfor %}
 
-                {% else %}
-                    <p class="text-muted">Chưa có món nào</p>
-                {% endif %}
+                    <!-- REMOVE -->
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="mon_id" value="{{ ct.mon_an.id }}">
+                        <button name="action" value="remove" class="btn btn-danger btn-sm">
+                            ❌
+                        </button>
+                    </form>
 
-            </div>
-        </div>
-        
-        <div class="col-md-4">
-            <div class="card-box">
-
-                <h5>Tổng thanh toán</h5>
-
-                <hr>
-
-                <div class="d-flex justify-content-between">
-                    <span>Tổng tiền:</span>
-                    <strong class="text-danger">
-                        {{ tong_tien|floatformat:0 }} đ
-                    </strong>
                 </div>
+                {% endfor %}
 
-                <hr>
-                
-                <form method="POST">
-                    {% csrf_token %}
-                    <button name="action" value="pay" class="btn btn-success w-100 fw-bold">
-                        Thanh toán
-                    </button>
-                </form>
+            {% else %}
+                <p class="text-muted">Chưa có món nào</p>
+            {% endif %}
 
-                <a href="{% url 'dashboard' %}" class="btn btn-secondary w-100 mt-2">
-                    Quay lại
-                </a>
-
-            </div>
         </div>
+    </div>
+    
+    <!-- RIGHT -->
+    <div class="col-12 col-lg-4">
+        <div class="card-box">
 
+            <h5>Tổng thanh toán</h5>
+
+            <hr>
+
+            <div class="d-flex justify-content-between">
+                <span>Tổng tiền:</span>
+                <strong class="text-danger">
+                    {{ tong_tien|floatformat:0 }} đ
+                </strong>
+            </div>
+
+            <hr>
+            
+            <form method="POST">
+                {% csrf_token %}
+                <button name="action" value="pay" class="btn btn-success w-100 fw-bold">
+                    Thanh toán
+                </button>
+            </form>
+
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary w-100 mt-2">
+                Quay lại
+            </a>
+
+        </div>
     </div>
 
 </div>
+
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 </body>
 </html>

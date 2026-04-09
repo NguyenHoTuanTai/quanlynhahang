@@ -89,6 +89,31 @@
             background-color: #fff3e0;
             color: #e65c00;
         }
+        .nav-pills {
+            gap: 10px;
+            padding: 5px;
+        }
+
+        .nav-pills .nav-link {
+            border-radius: 50px;
+            padding: 8px 16px;
+            white-space: nowrap;
+            font-size: 0.9rem;
+        }
+
+        /* Mobile scroll ngang đẹp */
+        @media (max-width: 767px) {
+            .nav {
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                justify-content: start !important;
+                padding-bottom: 10px;
+            }
+
+            .nav::-webkit-scrollbar {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -98,8 +123,14 @@
     <div class="hero-section">
         <div class="container">
             <h1 class="display-5 fw-bold mb-4">HƯƠNG VỊ TUYỆT HẢO – PHỤC VỤ TẬN TÂM</h1>
-            <a href="{% url 'thuc_don' %}" class="btn btn-orange btn-lg px-4 me-3">Xem Thực Đơn</a>
-            <a href="{% url 'dat_ban' %}" class="btn btn-warning btn-lg px-4 text-dark fw-bold">Đặt Bàn Ngay</a>
+            <div class="d-flex flex-column flex-sm-row justify-content-center gap-3">
+                <a href="{% url 'thuc_don' %}" class="btn btn-orange btn-lg px-4">
+                    Xem Thực Đơn
+                </a>
+                <a href="{% url 'dat_ban' %}" class="btn btn-warning btn-lg px-4 fw-bold">
+                    Đặt Bàn Ngay
+                </a>
+            </div>
         </div>
     </div>
 
@@ -156,7 +187,7 @@
                 <img src="https://images.unsplash.com/photo-1414235077428-338989a2e8c0?q=80&w=800&auto=format&fit=crop" class="img-fluid rounded" alt="Nha Hang">
             </div>
             <div class="col-md-7 px-5">
-                <h4 class="fw-bold mb-3">Giới thiệu về nhà hàng</h4>
+                <h4 class="fw-bold mb-3 mt-3">Giới thiệu về nhà hàng</h4>
                 <p>- Thành lập 2024</p>
                 <p>- 1000+ khách hàng mỗi tháng</p>
                 <p class="text-muted">Chúng tôi cam kết mang lại những trải nghiệm ẩm thực tuyệt vời nhất với nguyên liệu tươi ngon và phong cách phục vụ chuyên nghiệp.</p>
@@ -177,24 +208,52 @@
             </div>
             
             <div class="col-md-4 px-4 py-3 py-md-0">
+
+                <!-- 5 sao -->
                 <div class="d-flex align-items-center mb-2">
                     <span class="me-2 text-muted fw-bold">5⭐</span>
                     <div class="progress flex-grow-1" style="height: 8px;">
-                        <div class="progress-bar progress-bar-star" style="width: 80%"></div>
+                        <div class="progress-bar progress-bar-star" style="width: {{ pt_5|floatformat:0 }}%"></div>                        
                     </div>
+                    <span class="ms-2 small text-muted">({{ sao_5 }})</span>
                 </div>
+            
+                <!-- 4 sao -->
                 <div class="d-flex align-items-center mb-2">
                     <span class="me-2 text-muted fw-bold">4⭐</span>
                     <div class="progress flex-grow-1" style="height: 8px;">
-                        <div class="progress-bar progress-bar-star" style="width: 15%"></div>
+                        <div class="progress-bar progress-bar-star" style="width: {{ pt_4|floatformat:0 }}%"></div>
                     </div>
+                    <span class="ms-2 small text-muted">({{ sao_4 }})</span>
                 </div>
-                <div class="d-flex align-items-center">
+            
+                <!-- 3 sao -->
+                <div class="d-flex align-items-center mb-2">
                     <span class="me-2 text-muted fw-bold">3⭐</span>
                     <div class="progress flex-grow-1" style="height: 8px;">
-                        <div class="progress-bar progress-bar-star" style="width: 5%"></div>
+                        <div class="progress-bar progress-bar-star" style="width: {{ pt_3|floatformat:0 }}%"></div>
                     </div>
+                    <span class="ms-2 small text-muted">({{ sao_3 }})</span>
                 </div>
+            
+                <!-- 2 sao -->
+                <div class="d-flex align-items-center mb-2">
+                    <span class="me-2 text-muted fw-bold">2⭐</span>
+                    <div class="progress flex-grow-1" style="height: 8px;">
+                        <div class="progress-bar progress-bar-star" style="width: {{ pt_2|floatformat:0 }}%"></div>
+                    </div>
+                    <span class="ms-2 small text-muted">({{ sao_2 }})</span>
+                </div>
+            
+                <!-- 1 sao -->
+                <div class="d-flex align-items-center">
+                    <span class="me-2 text-muted fw-bold">1⭐</span>
+                    <div class="progress flex-grow-1" style="height: 8px;">
+                        <div class="progress-bar progress-bar-star" style="width: {{ pt_1|floatformat:0 }}%"></div>
+                    </div>
+                    <span class="ms-2 small text-muted">({{ sao_1 }})</span>
+                </div>
+            
             </div>
 
             <div class="col-md-4 text-center">

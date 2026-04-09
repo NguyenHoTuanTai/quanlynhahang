@@ -1,55 +1,62 @@
 {% load static %}
+
 <nav class="navbar navbar-expand-lg bg-white shadow-sm py-3">
     <div class="container">
-        <a class="navbar-brand text-orange fs-3" href="#">
-            <img src="{% static 'image/logo1.png' %}" height="45" alt="Logo">
-        </a>
-        <div class="collapse navbar-collapse justify-content-center">
-            <ul class="navbar-nav fw-medium">
-                <li class="nav-item"><a class="nav-link text-dark mx-2" href="{% url 'trang_chu' %}">Trang chủ</a></li>
-                <li class="nav-item"><a class="nav-link text-dark mx-2" href="{% url 'thuc_don' %}">Thực đơn</a></li>
-                <li class="nav-item"><a class="nav-link text-dark mx-2" href="{% url 'quan_ly_dat_ban' %}">Quản lý đặt bàn</a></li>
-                <li class="nav-item"><a class="nav-link text-dark mx-2" href="{% url 'dashboard' %}">Quản lý bàn</a></li>
-            </ul>
-        </div>
-        <div>
+
+
+    <!-- Logo -->
+    <a class="navbar-brand text-orange fs-3" href="{% url 'trang_chu' %}">
+        <img src="{% static 'image/logo1.png' %}" height="45" alt="Logo">
+    </a>
+
+    <!-- Nút mobile -->
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
+        <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <!-- Nội dung -->
+    <div class="collapse navbar-collapse" id="navbarMain">
+
+        <!-- Menu -->
+        <ul class="navbar-nav mx-auto text-center">
+            <li class="nav-item fw-medium">
+                <a class="nav-link text-dark" href="{% url 'trang_chu' %}">Trang chủ</a>
+            </li>
+            <li class="nav-item fw-medium">
+                <a class="nav-link text-dark" href="{% url 'thuc_don' %}">Thực đơn</a>
+            </li>
+            <li class="nav-item fw-medium">
+                <a class="nav-link text-dark" href="{% url 'quan_ly_dat_ban' %}">Quản lý đặt bàn</a>
+            </li>
+            <li class="nav-item fw-medium">
+                <a class="nav-link text-dark" href="{% url 'dashboard' %}">Quản lý bàn</a>
+            </li>
+        </ul>
+
+        <!-- User -->
+        <div class="mt-3 mt-lg-0 text-center text-lg-end">
+
             {% if user.is_authenticated %}
             <div class="dropdown">
-                <button class="btn btn-outline-dark btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <button class="btn btn-outline-dark btn-sm dropdown-toggle" data-bs-toggle="dropdown">
                     <i class="bi bi-person-circle"></i> {{ request.user.username }}
                 </button>
 
                 <ul class="dropdown-menu dropdown-menu-end shadow">
+
                     {% if request.user.is_staff %}
                     <li>
-                        <a class="dropdown-item text-warning fw-bold" href="/admin/">
-                            Quản trị hệ thống
-                        </a>
+                        <a class="dropdown-item text-warning fw-bold" href="/admin/">Quản trị hệ thống</a>
                     </li>
                     <li>
-                        <a class="dropdown-item text-warning fw-bold" href="/nhan-vien/">
-                            Quản lý nhà hàng
-                        </a>
+                        <a class="dropdown-item text-warning fw-bold" href="/nhan-vien/">Quản lý nhà hàng</a>
                     </li>
                     <li><hr class="dropdown-divider"></li>
                     {% endif %}
-                    
-                    <li>
-                        <a class="dropdown-item" href="/tai-khoan/">
-                            Thông tin tài khoản
-                        </a>
-                    </li>
 
-                    <li>
-                        <a class="dropdown-item" href="/lich-su-dat/">
-                            Lịch sử đặt bàn
-                        </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="/danh-gia/">
-                            Viết đánh giá
-                        </a>
-                    </li>
+                    <li><a class="dropdown-item" href="/tai-khoan/">Thông tin tài khoản</a></li>
+                    <li><a class="dropdown-item" href="/lich-su-dat/">Lịch sử đặt bàn</a></li>
+                    <li><a class="dropdown-item" href="/danh-gia/">Viết đánh giá</a></li>
 
                     <li><hr class="dropdown-divider"></li>
 
@@ -63,10 +70,16 @@
                     </li>
                 </ul>
             </div>
+
             {% else %}
-                <a href="/login/" class="btn btn-outline-dark btn-sm me-2">Đăng nhập</a>
-                <a href="#" class="btn btn-orange btn-sm">Đăng ký</a>
+            <a href="/login/" class="btn btn-outline-dark btn-sm me-2">Đăng nhập</a>
+            <a href="#" class="btn btn-orange btn-sm">Đăng ký</a>
             {% endif %}
+
         </div>
+
     </div>
+</div>
+
+
 </nav>
