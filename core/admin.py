@@ -10,9 +10,12 @@ class NhanVienAdminForm(forms.ModelForm):
         model = NhanVien
         fields = '__all__'
 
+    # clean() tự động chạy khi bấm nút "Lưu" để kiểm tra lỗi
     def clean(self):
         cleaned_data = super().clean()
         sdt = cleaned_data.get('so_dien_thoai')
+        
+        # Bắt lỗi nhập số điện thoại sai định dạng
         if sdt:
             if not sdt.isdigit():
                 self.add_error('so_dien_thoai', "Số điện thoại chỉ được chứa các chữ số!")
@@ -30,6 +33,7 @@ class BanAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Đảm bảo số ghế/sức chứa không được nhập số âm hoặc bằng 0
         for field in ['so_ghe', 'suc_chua']:
             if field in cleaned_data:
                 val = cleaned_data.get(field)
@@ -45,6 +49,7 @@ class MonAnAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Chống nhập giá bán bị âm
         for field in ['gia', 'gia_ban']:
             if field in cleaned_data:
                 val = cleaned_data.get(field)
@@ -60,6 +65,7 @@ class ChiTietDonHangAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Mua hàng thì số lượng phải từ 1 trở lên
         if 'so_luong' in cleaned_data:
             val = cleaned_data.get('so_luong')
             if val is not None and val <= 0:
@@ -74,6 +80,7 @@ class DonHangAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Chống nhập tổng tiền bị âm
         for field in ['tong_tien', 'tong_cong']:
             if field in cleaned_data:
                 val = cleaned_data.get(field)
@@ -104,6 +111,7 @@ class DanhGiaAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned_data = super().clean()
+        # Đánh giá sao thì chỉ được nằm trong khoảng từ 1 đến 5 sao
         for field in ['diem', 'so_sao', 'rating']:
             if field in cleaned_data:
                 val = cleaned_data.get(field)
@@ -117,6 +125,7 @@ class DatBanAdminForm(forms.ModelForm):
         model = DatBan
         fields = '__all__'
 
+    # Dùng clean_<tên_field> để bắt lỗi cho từng trường cụ thể
     def clean_so_dien_thoai(self):
         sdt = self.cleaned_data.get('so_dien_thoai')
         if sdt:
@@ -141,7 +150,9 @@ class DatBanAdminForm(forms.ModelForm):
         return tien
 
 
+# ĐĂNG KÝ VÀ TÙY BIẾN GIAO DIỆN ADMIN
 
+# Áp dụng các Form kiểm tra dữ liệu ở trên vào từng Model tương ứng
 @admin.register(NhanVien)
 class NhanVienAdmin(admin.ModelAdmin):
     form = NhanVienAdminForm
@@ -170,14 +181,25 @@ class ThanhToanAdmin(admin.ModelAdmin):
 class DanhGiaAdmin(admin.ModelAdmin):
     form = DanhGiaAdminForm
 
+# Riêng bảng Đặt Bàn có tùy biến giao diện hiển thị chi tiết hơn
 @admin.register(DatBan)
 class DatBanAdmin(admin.ModelAdmin):
     form = DatBanAdminForm
+    
+    # Các cột sẽ hiển thị ra ở màn hình danh sách Đặt bàn
     list_display = ('ten_khach_hang', 'so_dien_thoai', 'ngay_dat', 'gio_dat', 'so_nguoi', 'tong_tien_coc', 'ban', 'trang_thai')
+    
+    # Cho phép chỉnh sửa nhanh cột 'ban' và 'trang_thai' ngay ngoài danh sách mà không cần bấm vào chi tiết
     list_editable = ('ban', 'trang_thai')
+    
+    # Tạo bộ lọc (Filter) bên tay phải theo Trạng thái và Ngày đặt
     list_filter = ('trang_thai', 'ngay_dat')
+    
+    # Thêm thanh tìm kiếm theo Tên khách và SĐT
     search_fields = ('ten_khach_hang', 'so_dien_thoai')
+    
+    # Sắp xếp mặc định: Đơn tạo mới nhất sẽ lên đầu
     ordering = ('-thoi_gian_tao',)
 
-
+# Loại món không cần form kiểm tra phức tạp nên chỉ cần đăng ký đơn giản như vầy
 admin.site.register(LoaiMon)

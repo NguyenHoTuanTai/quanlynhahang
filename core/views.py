@@ -1,5 +1,5 @@
 from django.shortcuts import render, redirect, get_object_or_404
-from .models import MonAn, LoaiMon, DanhGia
+from .models import MonAn, LoaiMon, DanhGia, ThanhToan
 from .models import Ban, DatBan, DonHang, ChiTietDonHang, User, Profile, DanhGia
 from django.http import HttpResponse
 from django.contrib import messages
@@ -9,12 +9,12 @@ from django.db.models import Avg
 from django.core.paginator import Paginator
 from django.shortcuts import render, redirect
 from django.db.models import Q
-
+from django.utils import timezone
 from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth import authenticate, login
 from django.core.exceptions import ValidationError
-
+from .models import DonHang, ThanhToan
 import random
-from django.core.mail import send_mail
 import string
 
 def trang_chu(request):
@@ -59,6 +59,23 @@ def trang_chu(request):
     page_number = request.GET.get('page') 
     page_obj = paginator.get_page(page_number)
 
+    # đếm số sao đánh giá
+    sao_5 = toan_bo_danh_gia.filter(diem_danh_gia=5).count()
+    sao_4 = toan_bo_danh_gia.filter(diem_danh_gia=4).count()
+    sao_3 = toan_bo_danh_gia.filter(diem_danh_gia=3).count()
+    sao_2 = toan_bo_danh_gia.filter(diem_danh_gia=2).count()
+    sao_1 = toan_bo_danh_gia.filter(diem_danh_gia=1).count()
+
+    def tinh_pt(sao):
+        return (sao / tong_danh_gia * 100) if tong_danh_gia > 0 else 0
+
+    pt_5 = tinh_pt(sao_5)
+    pt_4 = tinh_pt(sao_4)
+    pt_3 = tinh_pt(sao_3)
+    pt_2 = tinh_pt(sao_2)
+    pt_1 = tinh_pt(sao_1)
+
+
     # Đóng gói dữ liệu gửi ra giao diện HTML
     context = {
         'danh_sach_loai': danh_sach_loai,
@@ -67,6 +84,18 @@ def trang_chu(request):
         'tong_danh_gia': tong_danh_gia,        
         'diem_trung_binh': diem_trung_binh,    
         'danh_sach_mon_da_an': danh_sach_mon_da_an, 
+
+        'sao_5': sao_5,
+        'sao_4': sao_4,
+        'sao_3': sao_3,
+        'sao_2': sao_2,
+        'sao_1': sao_1,
+
+        'pt_5': pt_5,
+        'pt_4': pt_4,
+        'pt_3': pt_3,
+        'pt_2': pt_2,
+        'pt_1': pt_1,
     }
     return render(request, 'trang_chu.html', context)
 
@@ -152,18 +181,6 @@ def dat_ban_view(request):
         return redirect('dat_ban')
 
     return render(request, 'dat_ban.html')
-        
-def thanh_toan_view(request, dat_ban_id):
-    # Lấy thông tin đơn đặt bàn
-    don = get_object_or_404(DatBan, id=dat_ban_id)
-    
-    if request.method == 'POST':
-        # Cập nhật trạng thái thành Đã cọc sau khi submit
-        don.trang_thai = 'DaCoc' 
-        don.save()
-        return HttpResponse(f"<h2> Đặt bàn thành công!</h2> <p>Cảm ơn {don.ten_khach_hang}. Bàn của bạn (ID: {don.id}) đã được giữ.</p>")
-        
-    return render(request, 'thanh_toan.html', {'don': don})
 
 
 # Decorator kiểm tra quyền truy cập: Chỉ nhân viên (is_staff) mới được vào
@@ -371,6 +388,10 @@ def thuc_don(request):
 
             if delete_id:
                 ChiTietDonHang.objects.filter(id=delete_id).delete()
+
+                
+                return redirect(f"/thuc-don/?ban_id={post_ban_id}")
+
             else:
                 chi_tiet_list = ChiTietDonHang.objects.filter(don_hang=don)
 
@@ -381,12 +402,13 @@ def thuc_don(request):
                         so_luong = int(so_luong)
 
                         if so_luong <= 0:
-                            item.delete() # Xóa nếu set số lượng về 0
+                            item.delete()
                         else:
                             item.so_luong = so_luong
                             item.save()
 
-            return redirect("chi_tiet_ban", ban_id=post_ban_id)
+                
+                return redirect("chi_tiet_ban", ban_id=post_ban_id)
 
         # ===== REDIRECT SAU ADD =====
         # Giữ nguyên các tham số filter trên URL sau khi reload trang
@@ -465,6 +487,8 @@ def chi_tiet_ban(request, ban_id):
             
             ban.trang_thai = "DangPhucVu"
             ban.save()
+
+            
         
         elif action == "tang":
             chi_tiet = ChiTietDonHang.objects.filter(don_hang=don, mon_an_id=mon_id).first()
@@ -542,125 +566,76 @@ def hoan_tat_dat_ban(request):
         
         # Xóa Session tạm sau khi lưu thành công
         del request.session['tam_thoi_dat_ban']
-        messages.success(request, '✅ Đăng nhập và Đặt bàn thành công! Vui lòng chờ xác nhận.')
+        messages.success(request, 'Đăng nhập và Đặt bàn thành công! Vui lòng chờ xác nhận.')
     
     return redirect('dat_ban') 
 
+
+
 def register(request):
-    show_otp_modal = False # Biến điều khiển ẩn/hiện popup nhập OTP
+    if request.method == "POST":
+        username = request.POST.get("username")
+        email = request.POST.get("email")
+        password1 = request.POST.get("password1")
+        password2 = request.POST.get("password2")
 
-    # BƯỚC 2: XỬ LÝ KHI USER NHẬP OTP XÁC NHẬN
-    if request.method == "POST" and "otp" in request.POST:
-        otp_input = request.POST.get("otp")
-        data = request.session.get('register_data')
-
-        if not data:
-            messages.error(request, "Hết phiên, vui lòng đăng ký lại")
-            return redirect('register')
-
-        if otp_input == data['otp']:
-            # OTP đúng -> Khởi tạo tài khoản thực trong DB
-            User.objects.create_user(
-                username=data['username'],
-                email=data['email'],
-                password=data['password']
-            )
-            del request.session['register_data']
-            messages.success(request, "Đăng ký thành công!")
-        else:
-            messages.error(request, "OTP không đúng")
-            show_otp_modal = True
-
-    # BƯỚC 1: XỬ LÝ FORM ĐĂNG KÝ (CHƯA CÓ OTP)
-    elif request.method == "POST":
-        username = request.POST['username']
-        email = request.POST['email']
-        password1 = request.POST['password1']
-        password2 = request.POST['password2']
-
-        # Validate dữ liệu đầu vào
+        # check mật khẩu
         if password1 != password2:
             messages.error(request, "Mật khẩu không khớp")
-            return redirect('register')
+            return redirect("register")
+
+        if User.objects.filter(username=username).exists():
+            messages.error(request, "Tên đăng nhập đã tồn tại")
+            return redirect("register")
 
         if User.objects.filter(email=email).exists():
             messages.error(request, "Email đã tồn tại")
-            return redirect('register')
+            return redirect("register")
 
+        # validate password
         try:
-            validate_password(password1) # Check độ mạnh mật khẩu của Django
+            validate_password(password1)
         except ValidationError as e:
             for error in e.messages:
-                messages.error(request, f"❌ {error}")
-            return redirect('register')
+                messages.error(request, error)
+            return redirect("register")
 
-        # Tạo OTP ngẫu nhiên 6 số và lưu tạm info vào Session
-        otp = str(random.randint(100000, 999999))
+        User.objects.create_user(
+            username=username,
+            email=email,
+            password=password1
+        )
 
-        request.session['register_data'] = {
-            'username': username,
-            'email': email,
-            'password': password1,
-            'otp': otp
-        }
+        messages.success(request, "Đăng ký thành công!")
+        return redirect("login")
 
-        # Gửi email chứa mã OTP cho user
-        try:
-            send_mail(
-                'Mã OTP đăng ký',
-                f'Mã OTP của bạn là: {otp}',
-                'your_email@gmail.com',
-                [email],
-                fail_silently=False,
-            )
-        except Exception as e:
-            print("Lỗi gửi mail:", e)
-
-        messages.success(request, "OTP đã gửi tới email")
-        show_otp_modal = True # Bật cờ để hiển thị modal OTP trên giao diện
-
-    return render(request, 'register.html', {
-        'show_otp_modal': show_otp_modal
-    })
+    return render(request, "register.html")
 
 def forgot_password(request):
+    new_password = None
+
     if request.method == "POST":
+        username = request.POST.get("username")
         email = request.POST.get("email")
 
         try:
-            # Tìm user bằng email trong hệ thống
-            user = User.objects.get(email=email)
-            
-            # Tạo ngẫu nhiên một mật khẩu mới gồm 8 ký tự (chữ và số)
+            user = User.objects.get(username=username, email=email)
+
+            # tạo mật khẩu mới
             new_password = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
 
-            # Cập nhật mật khẩu mới cho user và lưu lại
+            # cập nhật mật khẩu
             user.set_password(new_password)
             user.save()
-            
-            # Gửi email chứa tài khoản và mật khẩu mới cho khách hàng
-            send_mail(
-                subject="Thông tin tài khoản",
-                message=f"""
-Xin chào {user.username}
 
-Tên đăng nhập: {user.username}
-Mật khẩu mới: {new_password}
-
-Vui lòng đăng nhập và đổi lại mật khẩu.
-                """,
-                from_email="your_email@gmail.com",
-                recipient_list=[email],
-                fail_silently=False,
-            )
-
-            messages.success(request, "Đã gửi thông tin qua email!")
+            messages.success(request, "Đã tạo mật khẩu mới!")
 
         except User.DoesNotExist:
-            # Báo lỗi nếu email nhập vào không khớp với tài khoản nào
-            messages.error(request, "Email không tồn tại!")
+            messages.error(request, "Sai tài khoản hoặc email!")
 
-    return render(request, "forgot_password.html")
+    return render(request, "forgot_password.html", {
+        "new_password": new_password
+    })
 
 # Bắt buộc phải đăng nhập mới được vào xem thông tin tài khoản
 @login_required
@@ -738,3 +713,222 @@ def lich_su_dat_ban_view(request):
     return render(request, 'lich_su_dat_ban.html', {
         'don_dat_ban': don_dat_ban
     })
+
+def thanh_toan_don(request, don_id):
+    # Lấy thông tin đơn hàng và chi tiết các món đã gọi
+    don = get_object_or_404(DonHang, id=don_id)
+    
+    # Lấy danh sách chi tiết đơn (Tùy tên related_name của bồ)
+    chi_tiet_don = don.chitietdonhang_set.all() 
+
+    # Lấy thông tin khách hàng
+    khach_hang = getattr(don, 'khach_hang', None)
+
+    # Tính toán các khoản tiền CƠ BẢN
+    tong_tien_mon = sum(item.thanh_tien for item in chi_tiet_don)
+    thue_vat = round(tong_tien_mon * 8 / 100) # Thuế VAT 8%
+    
+    # Tính toán ƯU ĐÃI THÀNH VIÊN
+    giam_gia_thanh_vien = 0
+    if khach_hang and hasattr(khach_hang, 'hang_thanh_vien'):
+        if khach_hang.hang_thanh_vien.ten_hang == 'Vàng':
+            giam_gia_thanh_vien = int(tong_tien_mon * 0.10)
+        elif khach_hang.hang_thanh_vien.ten_hang == 'Bạc':
+            giam_gia_thanh_vien = int(tong_tien_mon * 0.05)
+
+    # Các biến mặc định cho Voucher
+    giam_gia_voucher = 0
+    thong_bao_voucher = ""
+    voucher_code = ""
+
+    # XỬ LÝ KHI NGƯỜI DÙNG BẤM NÚT (POST REQUEST)
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # Hành động 1: Nhập mã Voucher và bấm "Áp dụng"
+        if action == 'ap_dung_voucher':
+            voucher_code = request.POST.get('voucher_code', '').strip()
+            
+            # Tạm thời để hardcode demo, sau này bồ nối với bảng Voucher thật
+            if voucher_code == "GIAM50K":
+                giam_gia_voucher = 50000
+                thong_bao_voucher = "Áp dụng mã giảm 50K thành công!"
+            elif voucher_code == "FREESHIP":
+                thong_bao_voucher = "Mã này chỉ dùng cho đơn mang về!"
+            elif voucher_code != "":
+                thong_bao_voucher = "Mã giảm giá không hợp lệ hoặc đã hết hạn!"
+
+        # Hành động 2: Bấm nút "Xác nhận thanh toán" chốt đơn
+        elif action == 'chot_don_thanh_toan':
+            # Lấy phương thức thanh toán khách chọn
+            phuong_thuc = request.POST.get('phuong_thuc', 'TienMat')
+            kieu_thanh_toan = "Tiền mặt" if phuong_thuc == "TienMat" else "Chuyển khoản (QR)"
+            
+            # Cập nhật trạng thái Đơn hàng (Đã sửa thành trang_thai_don theo chuẩn DB của bồ)
+            don.trang_thai_don = 'DaThanhToan' 
+            don.save()
+
+            # Giải phóng bàn (đổi màu xanh trên sơ đồ)
+            if don.ban:
+                don.ban.trang_thai = 'Trong' # Hoặc 'Trống' tùy chữ gán trong database
+                don.ban.save()
+
+            # Cộng điểm tích lũy cho khách hàng (nếu có)
+            if khach_hang:
+                # Quy tắc: 10.000đ = 1 điểm
+                tong_thanh_toan_cuoi = tong_tien_mon + thue_vat - giam_gia_thanh_vien - float(request.POST.get('giam_gia_voucher_hidden', 0))
+                diem_cong_them = int(tong_thanh_toan_cuoi / 10000)
+                
+                khach_hang.diem_tich_luy += diem_cong_them
+                khach_hang.save()
+
+            # BẮN THÔNG BÁO THÀNH CÔNG GỒM PHƯƠNG THỨC THANH TOÁN!
+            messages.success(request, f"🎉 Thanh toán thành công đơn #{don.id} bằng {kieu_thanh_toan}!")
+            
+            return redirect('/nhan-vien/') 
+
+    # CHUẨN BỊ DỮ LIỆU HIỂN THỊ RA GIAO DIỆN
+    tong_thanh_toan = tong_tien_mon + thue_vat - giam_gia_thanh_vien - giam_gia_voucher
+    
+    if tong_thanh_toan < 0:
+        tong_thanh_toan = 0
+
+    # Dự kiến số điểm khách sẽ nhận được
+    diem_tich_luy_du_kien = int(tong_thanh_toan / 10000) if khach_hang else 0
+
+    context = {
+        'don': don,
+        'chi_tiet_don': chi_tiet_don,
+        'khach_hang': khach_hang,
+        'tong_tien_mon': tong_tien_mon,
+        'thue_vat': thue_vat,
+        'giam_gia_thanh_vien': giam_gia_thanh_vien,
+        'giam_gia_voucher': giam_gia_voucher,
+        'thong_bao_voucher': thong_bao_voucher,
+        'tong_thanh_toan': tong_thanh_toan,
+        'diem_tich_luy_du_kien': diem_tich_luy_du_kien,
+    }
+
+    return render(request, 'thanh_toan.html', context)
+
+
+
+
+
+
+def xu_ly_thanh_toan(request, don_hang_id):
+    don_hang = get_object_or_404(DonHang, id=don_hang_id)
+    chi_tiet_don = don_hang.chitietdonhang_set.all()
+    
+    # 1. TÍNH TIỀN CƠ BẢN VÀ THUẾ VAT (8%)
+    tong_tien_mon = sum(item.thanh_tien for item in chi_tiet_don)
+    thue_vat = int(float(tong_tien_mon) * 0.08)
+    
+    giam_gia_voucher = 0
+    thong_bao_khach = ""
+    thong_bao_voucher = ""
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+
+        # --- LUÔN KIỂM TRA VOUCHER ĐẦU TIÊN ---
+        ma_voucher = request.POST.get('voucher_code', '').strip()
+        if ma_voucher == 'GIAM50K':
+            giam_gia_voucher = 50000
+            thong_bao_voucher = "✅ Đã áp dụng mã GIAM50K (-50.000đ)"
+        elif ma_voucher != '':
+            thong_bao_voucher = "❌ Mã giảm giá không hợp lệ hoặc đã hết hạn!"
+
+        # --- NÚT 1: TÌM KHÁCH HÀNG BẰNG SĐT ---
+        if action == 'tim_khach_hang':
+            # Dùng replace để triệt tiêu mọi khoảng trắng lỡ tay gõ dư
+            sdt_nhap = request.POST.get('so_dien_thoai', '').strip().replace(" ", "")
+            
+            if not sdt_nhap:
+                thong_bao_khach = "⚠️ Vui lòng nhập số điện thoại!"
+                don_hang.khach_hang = None
+                don_hang.save()
+            else:
+                # Bắt đầu tìm trong bảng Profile
+                khach = Profile.objects.filter(so_dien_thoai=sdt_nhap).first()
+                
+                if khach:
+                    don_hang.khach_hang = khach
+                    don_hang.save()
+                    # Thêm thông báo thành công cho nhân viên yên tâm
+                    thong_bao_khach = f"✅ Đã tìm thấy khách: {khach.user.username}" 
+                else:
+                    don_hang.khach_hang = None
+                    don_hang.save()
+                    thong_bao_khach = f"❌ Không tìm thấy khách hàng với SĐT '{sdt_nhap}'!"
+
+        # --- NÚT 2: CHỐT ĐƠN THANH TOÁN ---
+        elif action == 'chot_don_thanh_toan':
+            giam_gia_tv_chot = 0
+            if don_hang.khach_hang and don_hang.khach_hang.hang_thanh_vien:
+                phan_tram = don_hang.khach_hang.hang_thanh_vien.phan_tram_giam_gia or 0
+                giam_gia_tv_chot = int(float(tong_tien_mon) * (phan_tram / 100.0))
+            
+            tong_thanh_toan_chot = float(tong_tien_mon) + thue_vat - giam_gia_tv_chot - giam_gia_voucher
+            tong_thanh_toan_chot = max(0, int(tong_thanh_toan_chot)) 
+
+            phuong_thuc = request.POST.get('phuong_thuc', 'TienMat')
+            
+            # Đổi tên hiển thị cho đẹp để đưa vào thông báo
+            kieu_thanh_toan = "Tiền mặt" if phuong_thuc == "TienMat" else "Chuyển khoản (QR)"
+
+            thanh_toan, created = ThanhToan.objects.get_or_create(don_hang=don_hang)
+            thanh_toan.phuong_thuc = phuong_thuc
+            thanh_toan.trang_thai_thanh_toan = 'Đã thanh toán'
+            thanh_toan.thoi_gian_thanh_toan = timezone.now()
+            thanh_toan.save()
+
+            don_hang.tong_tien = tong_thanh_toan_chot
+            don_hang.trang_thai_don = 'DaThanhToan'
+            
+            if don_hang.ban:
+                don_hang.ban.trang_thai = 'Trong' 
+                don_hang.ban.save()
+            don_hang.save()
+            
+            if don_hang.khach_hang:
+                diem_cong = int(tong_thanh_toan_chot / 100000)
+                don_hang.khach_hang.diem_tich_luy += diem_cong
+                don_hang.khach_hang.save()
+            
+            
+            dat_ban = DatBan.objects.filter(ban=don_hang.ban_id).first()
+
+            if dat_ban:
+                dat_ban.trang_thai = 'DaThanhToan'
+                dat_ban.save()
+
+            # 🔥 BẮN THÔNG BÁO THÀNH CÔNG VÀ CHUYỂN HƯỚNG VỀ ĐÚNG TRANG SƠ ĐỒ BÀN
+            messages.success(request, f"Thanh toán thành công đơn #{don_hang.id} bằng {kieu_thanh_toan}!")
+            return redirect('dashboard') 
+
+    # 2. TÍNH TOÁN LẠI ĐỂ HIỂN THỊ RA GIAO DIỆN MỖI LẦN TẢI
+    giam_gia_thanh_vien = 0
+    if don_hang.khach_hang and don_hang.khach_hang.hang_thanh_vien:
+        phan_tram = don_hang.khach_hang.hang_thanh_vien.phan_tram_giam_gia or 0
+        giam_gia_thanh_vien = int(float(tong_tien_mon) * (phan_tram / 100.0))
+
+    tong_thanh_toan = float(tong_tien_mon) + thue_vat - giam_gia_thanh_vien - giam_gia_voucher
+    tong_thanh_toan = max(0, int(tong_thanh_toan))
+    
+    diem_tich_luy_du_kien = int(tong_thanh_toan / 100000) if don_hang.khach_hang else 0
+
+    context = {
+        'don': don_hang,
+        'chi_tiet_don': chi_tiet_don,
+        'khach_hang': don_hang.khach_hang,
+        'tong_tien_mon': tong_tien_mon,
+        'thue_vat': thue_vat,
+        'giam_gia_thanh_vien': giam_gia_thanh_vien,
+        'giam_gia_voucher': int(giam_gia_voucher),
+        'tong_thanh_toan': tong_thanh_toan,
+        'diem_tich_luy_du_kien': diem_tich_luy_du_kien,
+        'thong_bao_khach': thong_bao_khach,
+        'thong_bao_voucher': thong_bao_voucher
+    }
+    return render(request, 'thanh_toan.html', context)

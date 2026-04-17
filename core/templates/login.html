@@ -60,6 +60,13 @@ body{
 <h4 class="mt-2">Đăng nhập</h4>
 </div>
 
+
+{% if form.errors %}
+    <div class="alert alert-danger text-center">
+        Tài khoản hoặc mật khẩu sai
+    </div>
+{% endif %}
+
 <form method="post">
 
 {% csrf_token %}
@@ -101,4 +108,17 @@ body{
 </div>
 
 </body>
+<script>
+    setTimeout(function(){
+        let alerts = document.querySelectorAll(".alertBox");
+    
+        alerts.forEach(alertBox => {
+            alertBox.style.transition = "opacity 0.5s";
+            alertBox.style.opacity = "0";
+    
+            setTimeout(() => alertBox.remove(), 500);
+        });
+    
+    }, 2000);
+</script>
 </html>
