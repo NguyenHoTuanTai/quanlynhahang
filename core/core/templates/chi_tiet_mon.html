@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>{{ mon.ten_mon }} - Nhà Hàng</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+    
+
+<div class="container mt-5">
+    <div class="row bg-white p-4 shadow-sm rounded">
+        
+        <div class="col-md-6">
+            <img src="/static/image/{{ mon.hinh_anh }}" class="img-fluid rounded" alt="{{ mon.ten_mon }}" style="width: 100%; max-height: 400px; object-fit: cover;">
+        </div>
+
+        <div class="col-md-6">
+            <h1 class="fw-bold">{{ mon.ten_mon }}</h1>
+            <h3 class="text-danger fw-bold mt-3">{{ mon.gia_ban|floatformat:0 }} VNĐ</h3>
+            
+            <p class="mt-4 fs-5"><strong>Mô tả:</strong> <br> 
+               {% if mon.mo_ta %}
+                    {{ mon.mo_ta|linebreaks }}
+                {% else %}
+                    Món ăn này hiện chưa có mô tả chi tiết, nhưng đảm bảo cực kỳ ngon miệng và hợp khẩu vị!
+                {% endif %}
+            </p>
+
+            <div class="mt-5">
+                <a href="/" class="btn btn-outline-secondary btn-lg">Trở về trang chủ</a>
+            </div>
+        </div>
+        
+    </div>
+</div>
+
+</body>
+</html>

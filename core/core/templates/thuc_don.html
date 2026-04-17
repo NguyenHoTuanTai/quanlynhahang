@@ -1,0 +1,308 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Thực đơn</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+<style>
+body { background: #f8f8f8; }
+
+/* CSS CHO CỘT BỘ LỌC (SIDEBAR) BÊN TRÁI VÀ BÊN PHẢI */
+.sidebar {
+    background: white;
+    padding: 15px;
+    border-radius: 15px;
+}
+
+/* Các nút bấm lọc (Loại món, Giá) */
+.filter-btn {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    margin-bottom: 6px;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #333;
+    background: #f1f1f1;
+    font-size: 14px;
+}
+/* Hiệu ứng khi di chuột vào nút lọc */
+.filter-btn:hover {
+    background: #e65c00;
+    color: white;
+}
+/* Màu của nút lọc khi đang được chọn */
+.filter-active {
+    background: #e65c00 !important;
+    color: white !important;
+}
+
+/* CSS CHO TỪNG MÓN ĂN (CARD) */
+.card img {
+    height: 140px;
+    object-fit: cover; /* Giúp ảnh không bị méo khi thu phóng */
+}
+
+.price {
+    color: red;
+    font-weight: bold;
+}
+
+/* SỬA LỖI GIAO DIỆN TRÊN ĐIỆN THOẠI (Màn hình nhỏ hơn 768px) */
+@media (max-width: 768px){
+    .card img {
+        height: 120px; /* Làm ảnh lùn xuống một chút cho vừa màn hình điện thoại */
+    }
+}
+</style>
+
+</head>
+
+<body>
+
+{% include 'navbar_user.html' %}
+
+<div class="container my-3">
+
+<h4 class="text-center mb-3 fw-bold">THỰC ĐƠN</h4>
+
+{% if ban %}
+<div class="alert alert-success text-center fw-bold">
+    Đang thêm món cho BÀN {{ ban.so_ban }}
+</div>
+{% endif %}
+
+<div class="row g-3">
+
+<div class="col-12 d-md-none">
+    <button class="btn btn-outline-dark w-100" data-bs-toggle="collapse" data-bs-target="#filterBox">
+        Bộ lọc
+    </button>
+
+    <div class="collapse mt-2" id="filterBox">
+        <div class="sidebar shadow-sm">
+
+            <h6>Loại món</h6>
+            <a href="/thuc-don/?ban_id={{ ban_id }}"
+               class="filter-btn {% if not request.GET.loai %}filter-active{% endif %}">
+                Tất cả
+            </a>
+
+            {% for loai in danh_sach_loai %}
+            <a href="?loai={{ loai.id }}{% if request.GET.gia %}&gia={{ request.GET.gia }}{% endif %}&ban_id={{ ban_id }}"
+               class="filter-btn {% if request.GET.loai == loai.id|stringformat:'s' %}filter-active{% endif %}">
+                {{ loai.ten_loai }}
+            </a>
+            {% endfor %}
+
+            <h6 class="mt-2">Giá</h6>
+            <a href="?gia=duoi100{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}&ban_id={{ ban_id }}"
+               class="filter-btn {% if request.GET.gia == 'duoi100' %}filter-active{% endif %}">
+                Dưới 100k
+            </a>
+
+            <a href="?gia=100-200{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}&ban_id={{ ban_id }}"
+               class="filter-btn {% if request.GET.gia == '100-200' %}filter-active{% endif %}">
+                100k - 200k
+            </a>
+
+            <a href="?gia=tren200{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}&ban_id={{ ban_id }}"
+               class="filter-btn {% if request.GET.gia == 'tren200' %}filter-active{% endif %}">
+                Trên 200k
+            </a>
+
+        </div>
+    </div>
+</div>
+
+<div class="col-md-3 d-none d-md-block">
+    <div class="sidebar shadow-sm">
+
+        <h5>Loại món</h5>
+
+        <a href="/thuc-don/?ban_id={{ ban_id }}"
+           class="filter-btn {% if not request.GET.loai %}filter-active{% endif %}">
+            Tất cả
+        </a>
+
+        {% for loai in danh_sach_loai %}
+        <a href="?loai={{ loai.id }}{% if request.GET.gia %}&gia={{ request.GET.gia }}{% endif %}&ban_id={{ ban_id }}"
+           class="filter-btn {% if request.GET.loai == loai.id|stringformat:'s' %}filter-active{% endif %}">
+            {{ loai.ten_loai }}
+        </a>
+        {% endfor %}
+
+        <h5 class="mt-3">Giá</h5>
+
+        <a href="?gia=duoi100{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}&ban_id={{ ban_id }}"
+           class="filter-btn {% if request.GET.gia == 'duoi100' %}filter-active{% endif %}">
+            Dưới 100k
+        </a>
+
+        <a href="?gia=100-200{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}&ban_id={{ ban_id }}"
+           class="filter-btn {% if request.GET.gia == '100-200' %}filter-active{% endif %}">
+            100k - 200k
+        </a>
+
+        <a href="?gia=tren200{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}&ban_id={{ ban_id }}"
+           class="filter-btn {% if request.GET.gia == 'tren200' %}filter-active{% endif %}">
+            Trên 200k
+        </a>
+
+    </div>
+</div>
+
+<div class="{% if ban_id %}col-12 col-md-6{% else %}col-12 col-md-9{% endif %}">
+    <div class="row g-3">
+
+        {% for mon in danh_sach_mon %}
+        <div class="col-6 col-md-6 col-lg-4">
+            <div class="card shadow-sm h-100">
+
+                <img src="/static/image/{{ mon.hinh_anh }}" class="card-img-top">
+
+                <div class="card-body d-flex flex-column">
+
+                    <h6 class="fw-bold">{{ mon.ten_mon }}</h6>
+
+                    <p class="small text-muted flex-grow-1">
+                        {{ mon.mo_ta|default:"Món ăn ngon" }}
+                    </p>
+
+                    <p class="price">
+                        {{ mon.gia_ban|floatformat:0 }} đ
+                    </p>
+
+                    {% if ban_id %}
+                    <form method="POST">
+                        {% csrf_token %} <input type="hidden" name="action" value="add">
+                        <input type="hidden" name="mon_id" value="{{ mon.id }}">
+                        <input type="hidden" name="ban_id" value="{{ ban_id }}">
+                        
+                        <button class="btn btn-warning w-100 btn-sm">
+                            Thêm
+                        </button>
+                    </form>
+                    {% endif %}
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+
+    </div>
+</div>
+
+{% if ban_id %}
+<div class="col-12 col-md-3">
+    <div class="sidebar shadow-sm">
+
+        <h5>Đơn hiện tại</h5>
+
+        {% if chi_tiet_list %}
+
+        <ul class="list-group mb-3">
+            {% for item in chi_tiet_list %}
+            <li class="list-group-item">
+            
+                <strong>{{ item.mon_an.ten_mon }}</strong>
+            
+                <input type="number"
+                    form="updateForm"
+                    class="form-control mt-2 quantity"
+                    name="so_luong_{{ item.id }}"
+                    value="{{ item.so_luong }}"
+                    min="1"
+                    class="form-control mt-2"
+                    data-price="{{ item.gia_luc_ban }}">
+            
+                <div class="text-danger mt-2">
+                    {{ item.gia_luc_ban|floatformat:0 }} đ
+                </div>
+            
+                <!-- FORM XÓA RIÊNG -->
+                <form method="POST" class="mt-2">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_all">
+                    <input type="hidden" name="delete_id" value="{{ item.id }}">
+                    <input type="hidden" name="ban_id" value="{{ ban_id }}">
+            
+                    <button type="submit" class="btn btn-danger btn-sm w-100">
+                        Xóa
+                    </button>
+                </form>
+            
+            </li>
+            {% endfor %}
+        </ul>
+        
+        <form method="POST" id="updateForm">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_all">
+            <input type="hidden" name="ban_id" value="{{ ban_id }}">
+        
+            <div class="fw-bold text-end mb-2">
+                Tổng: <span id="tongTien">{{ tong_tien|floatformat:0 }}</span> đ
+            </div>
+        
+            <button class="btn btn-success w-100 fw-bold">
+                Xác nhận
+            </button>
+        </form>
+
+        {% else %}
+            <p class="text-muted">Chưa có món</p>
+        {% endif %}
+
+    </div>
+</div>
+{% endif %}
+
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+function updateTotal() {
+    let inputs = document.querySelectorAll(".quantity");
+    let total = 0;
+
+    inputs.forEach(input => {
+        let qty = parseInt(input.value);
+
+        // fix luôn 1
+        if (!qty || qty < 1) {
+            qty = 1;
+            input.value = 1;
+        }
+
+        let price = parseInt(input.dataset.price) || 0;
+        total += qty * price;
+    });
+
+    document.getElementById("tongTien").innerText = total;
+}
+
+// Bắt sự kiện khi nhập
+document.querySelectorAll(".quantity").forEach(input => {
+    input.addEventListener("input", updateTotal);
+
+    //khi người dùng rời khỏi ô vẫn là 1
+    input.addEventListener("blur", function() {
+        if (!this.value || this.value < 1) {
+            this.value = 1;
+            updateTotal();
+        }
+    });
+});
+</script>
+</body>
+</html>

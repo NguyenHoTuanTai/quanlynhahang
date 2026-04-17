@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Chi tiết bàn</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+
+<style>
+body { background: #f5f5f5; }
+
+/* BOX: Định dạng cho các thẻ chứa nội dung chính (bo góc, đổ bóng) */
+.card-box {
+    background: white;
+    border-radius: 15px;
+    padding: 20px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+}
+
+/* ITEM: Định dạng cho từng dòng món ăn (hiển thị ngang, cách đều) */
+.item-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    border-bottom: 1px solid #eee;
+    padding: 12px 0;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.item-info {
+    flex: 1;
+    min-width: 150px;
+}
+
+/* QUANTITY: Định dạng khu vực nút bấm tăng/giảm số lượng (+/-) */
+.quantity-box {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.quantity-box button {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+}
+
+/* BUTTON: Nút bấm màu cam tùy chỉnh */
+.btn-orange {
+    background: #ff7a00;
+    color: white;
+}
+.btn-orange:hover {
+    background: #e66900;
+}
+
+/* MOBILE: Điều chỉnh giao diện khi xem trên điện thoại (màn hình nhỏ hơn 576px) */
+@media (max-width: 576px){
+    .item-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    .quantity-box {
+        justify-content: flex-start;
+    }
+}
+</style>
+
+</head>
+
+<body>
+
+<div class="container py-3 py-md-4">
+
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+    <h4 class="mb-0">Bàn {{ ban.so_ban }}</h4>
+
+    <a href="{% url 'thuc_don' %}?ban_id={{ ban.id }}" class="btn btn-orange">
+        + Thêm món
+    </a>
+</div>
+
+<div class="row g-3">
+
+    <div class="col-12 col-lg-8">
+        <div class="card-box">
+            <h5 class="mb-3">Món đã gọi</h5>
+
+            {% if don and don.chitietdonhang_set.all %}
+                
+                {% for ct in don.chitietdonhang_set.all %}
+                <div class="item-row">
+
+                    <div class="item-info">
+                        <strong>{{ ct.mon_an.ten_mon }}</strong><br>
+                        <small class="text-muted">
+                            {{ ct.gia_luc_ban|floatformat:0 }} đ
+                        </small>
+                    </div>
+
+                    <div class="quantity-box">
+
+                        <form method="POST">
+                            {% csrf_token %} <input type="hidden" name="mon_id" value="{{ ct.mon_an.id }}">
+                            <button name="action" value="giam" class="btn btn-outline-secondary btn-sm">-</button>
+                        </form>
+
+                        <span class="fw-bold text-center" style="min-width:20px;">
+                            {{ ct.so_luong }}
+                        </span>
+
+                        <form method="POST">
+                            {% csrf_token %}
+                            <input type="hidden" name="mon_id" value="{{ ct.mon_an.id }}">
+                            <button name="action" value="tang" class="btn btn-outline-secondary btn-sm">+</button>
+                        </form>
+
+                    </div>
+
+                    <form method="POST">
+                        {% csrf_token %}
+                        <input type="hidden" name="mon_id" value="{{ ct.mon_an.id }}">
+                        <button name="action" value="remove" class="btn btn-danger btn-sm">
+                            ❌
+                        </button>
+                    </form>
+
+                </div>
+                {% endfor %}
+
+            {% else %}
+                <p class="text-muted">Chưa có món nào</p>
+            {% endif %}
+
+        </div>
+    </div>
+    
+    <div class="col-12 col-lg-4">
+        <div class="card-box">
+
+            <h5>Tổng thanh toán</h5>
+            <hr>
+
+            <div class="d-flex justify-content-between">
+                <span>Tổng tiền:</span>
+                <strong class="text-danger">
+                    {{ tong_tien|floatformat:0 }} đ
+                </strong>
+            </div>
+            <hr>
+            
+            {% if don %}
+            <a href="{% url 'thanh_toan' don.id %}" class="btn btn-success w-100 fw-bold">
+                Thanh toán
+            </a>
+            {% else %}
+            <button class="btn btn-success w-100 fw-bold" disabled>
+                Thanh toán
+            </button>
+            {% endif %}
+
+            <a href="{% url 'dashboard' %}" class="btn btn-secondary w-100 mt-2">
+                Quay lại
+            </a>
+
+        </div>
+    </div>
+
+</div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</body>
+</html>

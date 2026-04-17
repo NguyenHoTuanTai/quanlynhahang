@@ -1,0 +1,214 @@
+{% load static %}
+
+<!DOCTYPE html>
+
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tài khoản</title>
+
+
+<!-- Bootstrap -->
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+
+<style>
+    body {
+        background-color: #f5f6fa;
+    }
+
+    .card {
+        border-radius: 15px;
+    }
+
+    /* Avatar */
+    .avatar {
+        width: 90px;
+        height: 90px;
+        font-size: 32px;
+    }
+
+    @media (min-width: 768px) {
+        .avatar {
+            width: 110px;
+            height: 110px;
+            font-size: 42px;
+        }
+    }
+
+    /* Mobile spacing */
+    @media (max-width: 767px) {
+        .container {
+            padding-left: 10px;
+            padding-right: 10px;
+        }
+    }
+
+    /* Button đẹp hơn */
+    .btn-gradient {
+        background: linear-gradient(135deg, #ff7e5f, #ffb347);
+        border: none;
+        color: white;
+    }
+
+    .btn-gradient:hover {
+        opacity: 0.9;
+    }
+</style>
+
+
+</head>
+
+<body>
+
+{% include 'navbar_user.html' %}
+
+<div class="container py-4 py-md-5">
+    <div class="row g-3 g-md-4">
+
+
+    <!-- Cột trái -->
+    <div class="col-12 col-md-4">
+        <div class="card shadow-lg text-center p-3 p-md-4 border-0">
+
+            <!-- Avatar -->
+            <div class="mb-3">
+                <div class="avatar rounded-circle d-flex align-items-center justify-content-center mx-auto text-white fw-bold"
+                     style="background: linear-gradient(135deg, #ff7e5f, #ffb347);">
+                    {{ user.username|make_list|first|upper }}
+                </div>
+            </div>
+
+            <h5 class="fw-bold mb-1">{{ user.username }}</h5>
+            <p class="text-muted small mb-2">{{ user.email }}</p>
+
+            <!-- Điểm -->
+            <div class="mt-3 p-3 rounded
+            {% if profile.diem_tich_luy >= 1500 %}
+                bg-dark text-white
+            {% elif profile.diem_tich_luy >= 500 %}
+                bg-warning text-dark
+            {% else %}
+                bg-light
+            {% endif %}
+            " style="border:1px solid #ddd;">
+
+                <h6 class="mb-1 small
+                {% if profile.diem_tich_luy >= 1500 %}
+                    text-white-50
+                {% else %}
+                    text-muted
+                {% endif %}
+                ">
+                    Hạng thành viên
+                </h6>
+
+                <h4 class="fw-bold mb-1">
+                    {% if profile.diem_tich_luy >= 1500 %}
+                        Kim cương
+                    {% elif profile.diem_tich_luy >= 500 %}
+                        Vàng
+                    {% else %}
+                        Bạc
+                    {% endif %}
+                </h4>
+
+                <p class="small mb-2">
+                    {% if profile.diem_tich_luy >= 1500 %}
+                        Khách VIP - giảm giá cao nhất
+                    {% elif profile.diem_tich_luy >= 500 %}
+                        Tích 1500 điểm để lên Kim cương
+                    {% else %}
+                        Tích 500 điểm để lên Vàng
+                    {% endif %}
+                </p>
+
+                <hr class="my-2">
+
+                <h6 class="small mb-1
+                {% if profile.diem_tich_luy >= 1500 %}
+                    text-white-50
+                {% else %}
+                    text-muted
+                {% endif %}
+                ">
+                    Điểm tích lũy
+                </h6>
+
+                <h5 class="fw-bold mb-0">{{ profile.diem_tich_luy }}</h5>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cột phải -->
+    <div class="col-12 col-md-8">
+
+        <!-- Thông tin -->
+        <div class="card shadow-lg p-3 p-md-4 border-0 mb-3 mb-md-4">
+            <h5 class="fw-bold mb-3">Thông tin tài khoản</h5>
+
+            <form method="POST">
+                {% csrf_token %}
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Tên đăng nhập</label>
+                    <input type="text" class="form-control bg-light" value="{{ user.username }}" disabled>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Email</label>
+                    <input type="email" name="email" class="form-control" value="{{ user.email }}">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Số điện thoại</label>
+                    <input type="text" name="so_dien_thoai" class="form-control" value="{{ profile.so_dien_thoai }}">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Địa chỉ</label>
+                    <input type="text" name="dia_chi" class="form-control" value="{{ profile.dia_chi }}">
+                </div>
+
+                <button class="btn btn-gradient w-100 fw-semibold">
+                    Cập nhật thông tin
+                </button>
+            </form>
+        </div>
+
+        <!-- Đổi mật khẩu -->
+        <div class="card shadow-lg p-3 p-md-4 border-0">
+            <h5 class="fw-bold mb-3">Đổi mật khẩu</h5>
+
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="doi_mat_khau" value="1">
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Mật khẩu cũ</label>
+                    <input type="password" name="mat_khau_cu" class="form-control">
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label fw-semibold">Mật khẩu mới</label>
+                    <input type="password" name="mat_khau_moi" class="form-control">
+                </div>
+
+                <button class="btn btn-gradient w-100 fw-semibold">
+                    Đổi mật khẩu
+                </button>
+            </form>
+        </div>
+
+    </div>
+</div>
+
+
+</div>
+
+</body>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+</html>

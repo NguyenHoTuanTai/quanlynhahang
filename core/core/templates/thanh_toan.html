@@ -1,0 +1,196 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanh Toán Đơn #{{ don.id }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        .summary-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .total-row { font-size: 1.25rem; font-weight: bold; color: #dc3545; border-top: 2px dashed #ccc; padding-top: 10px; }
+        #qr_section { display: none; transition: all 0.3s ease; }
+    </style>
+</head>
+<body class="bg-light">
+
+    {% include 'navbar_admin.html' %} 
+
+    <div class="container py-4">
+        <h3 class="mb-4 text-primary"><i class="bi bi-receipt"></i> Thanh Toán - Đơn #{{ don.id }}</h3>
+
+        <div class="row g-4">
+            <div class="col-lg-7">
+                <div class="card shadow-sm mb-4">
+                    <div class="card-header bg-white fw-bold d-flex justify-content-between align-items-center">
+                        <span>Chi tiết hóa đơn</span>
+                        <span class="badge bg-secondary">
+                            {% if don.ban %}Bàn {{ don.ban.so_ban }}{% else %}Mang về{% endif %}
+                        </span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Tên món/Dịch vụ</th>
+                                        <th class="text-center">SL</th>
+                                        <th class="text-end">Đơn giá</th>
+                                        <th class="text-end">Thành tiền</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in chi_tiet_don %}
+                                    <tr>
+                                        <td>{{ item.mon_an.ten_mon }}</td>
+                                        <td class="text-center">{{ item.so_luong }}</td>
+                                        <td class="text-end">{{ item.gia_luc_ban }} đ</td>
+                                        <td class="text-end fw-semibold">{{ item.thanh_tien }} đ</td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="4" class="text-center py-3 text-muted">Chưa có món ăn nào trong đơn</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-5">
+                <form method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" name="giam_gia_voucher_hidden" value="{{ giam_gia_voucher|default:0 }}">
+
+                    <div class="card shadow-sm mb-3 border-warning">
+                        <div class="card-body">
+                            <h6 class="card-title text-warning fw-bold"><i class="bi bi-star-fill"></i> Ưu đãi Thành Viên</h6>
+                            
+                            <div class="input-group mb-3">
+                                <input type="text" class="form-control" name="so_dien_thoai" placeholder="Nhập SĐT khách hàng..." value="{{ request.POST.so_dien_thoai|default:'' }}">
+                                <button class="btn btn-warning text-dark fw-bold" type="submit" name="action" value="tim_khach_hang">Tìm & Áp dụng</button>
+                            </div>
+
+                            {% if thong_bao_khach %}
+                                <small class="text-{% if '✅' in thong_bao_khach %}success{% else %}danger{% endif %} d-block mb-2 fw-bold">{{ thong_bao_khach }}</small>
+                            {% endif %}
+
+                            {% if khach_hang %}
+                                <div class="bg-light p-2 rounded border border-success">
+                                    <p class="mb-1">Khách hàng: <strong>{{ khach_hang.user.username }}</strong></p>
+                                    <p class="mb-1">Hạng: 
+                                        {% if khach_hang.hang_thanh_vien %}
+                                            <span class="badge bg-warning text-dark">{{ khach_hang.hang_thanh_vien.ten_hang }}</span> 
+                                            {% if khach_hang.hang_thanh_vien.phan_tram_giam_gia %}
+                                                <small class="text-danger fw-bold">(Giảm {{ khach_hang.hang_thanh_vien.phan_tram_giam_gia }}%)</small>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="badge bg-secondary">Chưa có hạng</span>
+                                        {% endif %}
+                                    </p>
+                                    <p class="mb-0 text-success small">+ Dự kiến tích thêm: <strong>{{ diem_tich_luy_du_kien }} điểm</strong></p>
+                                </div>
+                            {% else %}
+                                <p class="text-muted mb-0 fst-italic"><small>Khách vãng lai (Không có thẻ thành viên)</small></p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-body">
+                            <label class="form-label fw-bold">Mã giảm giá (Voucher)</label>
+                            <div class="input-group">
+                                <input type="text" class="form-control" name="voucher_code" placeholder="Nhập mã..." value="{{ request.POST.voucher_code }}">
+                                <button class="btn btn-outline-secondary" type="submit" name="action" value="ap_dung_voucher">Áp dụng</button>
+                            </div>
+                            {% if thong_bao_voucher %}
+                                <small class="text-success mt-2 d-block fw-bold">{{ thong_bao_voucher }}</small>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm mb-3">
+                        <div class="card-body bg-light rounded">
+                            <div class="summary-row">
+                                <span class="text-muted">Tạm tính:</span>
+                                <span>{{ tong_tien_mon }} đ</span>
+                            </div>
+                            <div class="summary-row">
+                                <span class="text-muted">Thuế VAT (8%):</span>
+                                <span>{{ thue_vat }} đ</span>
+                            </div>
+                            {% if giam_gia_thanh_vien > 0 %}
+                            <div class="summary-row text-success">
+                                <span>Giảm giá thành viên:</span>
+                                <span>- {{ giam_gia_thanh_vien }} đ</span>
+                            </div>
+                            {% endif %}
+                            {% if giam_gia_voucher > 0 %}
+                            <div class="summary-row text-success">
+                                <span>Giảm giá Voucher:</span>
+                                <span>- {{ giam_gia_voucher }} đ</span>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="summary-row total-row mt-2">
+                                <span>TỔNG CỘNG:</span>
+                                <span>{{ tong_thanh_toan }} đ</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-body">
+                            <h6 class="fw-bold mb-3">Phương thức thanh toán</h6>
+                            
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="phuong_thuc" id="tien_mat" value="TienMat" checked onchange="toggleQR()">
+                                <label class="form-check-label" for="tien_mat">
+                                    <i class="bi bi-cash-coin text-success"></i> Tiền mặt (Tại quầy)
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="phuong_thuc" id="chuyen_khoan" value="ChuyenKhoan" onchange="toggleQR()">
+                                <label class="form-check-label" for="chuyen_khoan">
+                                    <i class="bi bi-qr-code-scan text-primary"></i> Chuyển khoản (Quét mã QR)
+                                </label>
+                            </div>
+
+                            <div id="qr_section" class="text-center mt-3 p-3 border rounded bg-white shadow-sm">
+                                <p class="mb-2 text-muted small">Quét mã để thanh toán <strong>{{ tong_thanh_toan }} đ</strong></p>
+                                <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg" alt="Mã QR" class="img-fluid" style="max-width: 150px;">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-2">
+                        <a href="javascript:history.back()" class="btn btn-secondary w-50">Quay lại</a>
+                        <button type="submit" name="action" value="chot_don_thanh_toan" class="btn btn-success w-50 fw-bold">
+                            Xác nhận thanh toán
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Bật/tắt hiển thị mã QR mượt mà
+        function toggleQR() {
+            const qrSection = document.getElementById('qr_section');
+            const isChuyenKhoan = document.getElementById('chuyen_khoan').checked;
+            
+            if (isChuyenKhoan) {
+                qrSection.style.display = 'block';
+            } else {
+                qrSection.style.display = 'none';
+            }
+        }
+        
+        document.addEventListener("DOMContentLoaded", toggleQR);
+    </script>
+</body>
+</html>

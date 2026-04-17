@@ -1,0 +1,379 @@
+{% load static %}
+
+<!DOCTYPE html>
+
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Đặt Bàn</title>
+
+<style>
+
+body { 
+    font-family: Arial, sans-serif; 
+    margin: 0;
+    background: url("{% static 'image/back.jpg' %}") no-repeat center center;
+    background-size: cover;
+    min-height: 100vh;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.booking-container { 
+    width: 100%;
+    max-width: 600px; 
+    background: rgba(255,255,255,0.95); 
+    padding: 25px; 
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+}
+
+h2 { 
+    text-align: center; 
+    color: #d35400; 
+    margin-bottom: 20px;
+}
+
+.form-group { margin-bottom: 15px; }
+
+label { 
+    font-weight: bold; 
+    display: block;
+    margin-bottom: 5px;
+}
+
+input, textarea {
+    width: 100%;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px solid #ccc;
+    box-sizing: border-box;
+}
+
+.row-2 {
+    display: flex;
+    gap: 15px;
+}
+
+.row-2 > div {
+    flex: 1;
+}
+
+.deposit-options {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.deposit-card {
+    flex: 1;
+    padding: 12px;
+    border: 2px solid #eee;
+    border-radius: 8px;
+    text-align: center;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+.deposit-card:hover {
+    border-color: #d35400;
+}
+
+.deposit-card.active {
+    background: #d35400;
+    color: white;
+}
+
+.deposit-card.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+}
+
+.submit-btn {
+    width: 100%;
+    padding: 14px;
+    background: #d35400;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    margin-top: 20px;
+    font-size: 16px;
+}
+
+.alert { 
+    padding: 10px; 
+    border-radius: 8px; 
+    margin-bottom: 10px; 
+    text-align: center;
+}
+
+.home-btn {
+    position: absolute;
+    top: 2px;
+    right: 0;
+    background: #d35400;
+    color: white;
+    padding: 8px 14px;
+    border-radius: 8px;
+    text-decoration: none;
+    font-size: 14px;
+    z-index: 999;
+}
+
+@media (max-width: 768px){
+
+    body {
+        align-items: flex-start;
+        padding: 10px;
+    }
+
+    .booking-container {
+        padding: 20px;
+    }
+
+    .row-2 {
+        flex-direction: column;
+    }
+
+    .deposit-options {
+        flex-direction: column;
+    }
+    .home-btn{
+        position: static;
+        transform: none;
+        display: block;
+        margin-top: 10px;
+    }
+}
+.header-box{
+    position: relative;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.header-box h2{
+    margin: 0;
+}
+
+
+</style>
+
+</head>
+
+<body>
+
+
+
+<div class="booking-container">
+    <div class="header-box">
+        <h2>🍽️ Đặt bàn</h2>
+        <a href="{% url 'trang_chu' %}" class="home-btn">Về trang chủ</a>
+    </div>
+
+  
+{% if messages %}
+    {% for message in messages %}
+        <div class="alert">
+            {{ message }}
+        </div>
+    {% endfor %}
+{% endif %}
+
+<form method="POST">
+    {% csrf_token %}
+
+    <div class="form-group">
+        <label>Tên người đặt (*)</label>
+        <input type="text" name="ten_khach_hang" required 
+               maxlength="50" 
+               pattern=".*\S+.*" 
+               oninput="this.setCustomValidity('');"
+               oninvalid="this.setCustomValidity('Vui lòng nhập tên người đặt (tối đa 100 ký tự).')"
+               placeholder="VD: Anh Tấn, Chị Hoa...">
+    </div>
+
+    <div class="form-group">
+        <label>Số điện thoại (*)</label>
+        <input type="tel" name="so_dien_thoai" required pattern="0[0-9]{9}"" 
+               oninput="this.value = this.value.replace(/[^0-9]/g, ''); this.setCustomValidity('');" 
+               oninvalid="this.setCustomValidity('Vui lòng chỉ nhập số, độ dài từ 10 chữ số.')"
+               placeholder="0xxxxxxxx">
+    </div>
+
+    <div style="display: flex; gap: 30px;">
+        <div class="form-group" style="flex: 1;">
+            <label>Ngày đến (*)</label>
+            <input type="date" name="ngay_dat" id="ngay_dat" class="form-control" required>
+        </div>
+        <div class="form-group" style="flex: 1;">
+            <label>Giờ đến (*)</label>
+            <input type="time" name="gio_dat" required>
+        </div>
+    </div>
+    
+    <div class="form-group">
+        <label>Số người (*)</label>
+        <input type="number" name="so_nguoi" id="so_nguoi" value="2">
+    </div>
+
+    <div class="form-group">
+        <label>Ghi chú thêm</label>
+        <textarea name="ghi_chu" rows="3" placeholder="Yêu cầu ghế em bé, dị ứng thức ăn, sắp xếp lãng mạn..."></textarea>
+    </div>
+
+    <div class="deposit-options">
+        <div class="deposit-card" onclick="selectDeposit(0,this)">
+            Không cọc<br><small>4-6 người</small>
+        </div>
+
+        <div class="deposit-card" onclick="selectDeposit(500000,this)">
+            Tiêu chuẩn<br><small>2-8 người</small>
+        </div>
+
+        <div class="deposit-card" onclick="selectDeposit(1000000,this)">
+            VIP<br><small>10-12 người</small>
+        </div>
+    </div>
+
+    <input type="hidden" name="tong_tien_coc" id="input_tien_coc" value="0">
+
+    <button type="submit" class="submit-btn" id="btn_submit" onclick="return validateForm()">Gửi Yêu Cầu Đặt Bàn</button>
+    
+</form>
+  
+
+</div>
+
+<script>
+    const soNguoiInput = document.getElementById("so_nguoi");
+    const cards = document.getElementsByClassName("deposit-card");
+    
+    
+    function selectDeposit(amount, el){
+        if(el.classList.contains("disabled")) return;
+    
+        document.getElementById("input_tien_coc").value = amount;
+    
+        for(let c of cards) c.classList.remove("active");
+        el.classList.add("active");
+    
+        let btn = document.getElementById('btn_submit');
+        if (amount > 0) {
+            btn.innerHTML = `Thanh toán cọc: ${amount.toLocaleString('vi-VN')}đ`;
+        } else {
+            btn.innerHTML = `Gửi Yêu Cầu Đặt Bàn`;
+        }
+    }
+    
+    // CHECK SỐ NGƯỜI
+    function checkNguoi(){
+        let n = parseInt(soNguoiInput.value) || 0;
+    
+        for(let i=0;i<cards.length;i++){
+            let card = cards[i];
+    
+            
+            card.classList.remove("disabled");
+            card.style.opacity = "1";
+            card.style.pointerEvents = "auto";
+    
+            let small = card.querySelector("small");
+    
+            if(i==0){
+                if(n<4 || n>6){
+                    disable(card,"4-6 người");
+                } else {
+                    small.innerText = "4-6 người";
+                }
+            }
+    
+            if(i==1){
+                if(n<2 || n>8){
+                    disable(card,"2-8 người");
+                } else {
+                    small.innerText = "2-8 người";
+                }
+            }
+    
+            if(i==2){
+                if(n<10 || n>12){
+                    disable(card,"10-12 người");
+                } else {
+                    small.innerText = "10-12 người";
+                }
+            }
+        }
+    }
+    
+    function disable(card,text){
+        card.classList.add("disabled");
+        card.style.opacity = "0.4";
+        card.style.pointerEvents = "none";
+    
+        card.querySelector("small").innerText = text + " (không phù hợp)";
+    
+        // nếu đang chọn mà bị disable -> bỏ chọn
+        if(card.classList.contains("active")){
+            card.classList.remove("active");
+            document.getElementById("input_tien_coc").value = 0;
+        }
+    }
+    
+    soNguoiInput.addEventListener("input", checkNguoi);
+    
+
+    checkNguoi();
+    
+    // ngày hôm nay
+    document.getElementById('ngay_dat').min = new Date().toISOString().split('T')[0];
+    function validateForm(){
+        let selected = document.querySelector(".deposit-card.active");
+    
+        if(!selected){
+            alert("Vui lòng chọn loại bàn phù hợp với số người!");
+            return false;
+        }
+    
+        return true;
+    }
+    </script>
+    
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var dateInput = document.getElementById('ngay_dat');
+        
+    
+        var today = new Date();
+        var dd = String(today.getDate()).padStart(2, '0');
+        var mm = String(today.getMonth() + 1).padStart(2, '0');
+        var yyyy = today.getFullYear();
+        var todayStr = yyyy + '-' + mm + '-' + dd;
+        dateInput.setAttribute('min', todayStr);
+    
+    
+        dateInput.addEventListener('blur', function() {
+            
+            if (this.validity.badInput) {
+                alert("Lỗi: Ngày tháng bạn nhập KHÔNG TỒN TẠI trên lịch!");
+                this.value = ""; 
+                return; 
+            }
+    
+            if (this.value) {
+                var selectedDate = new Date(this.value);
+                var currentDate = new Date(todayStr);
+    
+                if (selectedDate < currentDate) {
+                    alert("Lỗi: Không thể đặt bàn cho ngày trong quá khứ!");
+                    this.value = ""; 
+                }
+            }
+        });
+    });
+    </script>
+
+</body>
+</html>
