@@ -407,37 +407,30 @@
     // =====================
     // LINE CHART (DOANH THU THEO NGÀY)
     // =====================
-    const rawData = JSON.parse('{{ doanh_thu_theo_ngay_json|escapejs }}');
+    const labels = [
+        {% for item in doanh_thu_theo_ngay %}
+            "{{ item.ngay }}",
+        {% endfor %}
+    ];
 
-    const labels = rawData.map(item => item.ngay);
-    const values = rawData.map(item => item.tong);
-
-    const dateLabels = rawData.map(item => item.ngay);
-    const revenueData = rawData.map(item => item.tong);
+    const values = [
+        {% for item in doanh_thu_theo_ngay %}
+            {{ item.tong }},
+        {% endfor %}
+    ];
 
     new Chart(document.getElementById("revenueChart"), {
         type: "line",
         data: {
-            labels: dateLabels,
+            labels: labels,
             datasets: [{
                 label: "Doanh thu (VNĐ)",
-                data: revenueData,
+                data: values,
                 borderColor: "orange",
                 backgroundColor: "rgba(255,165,0,0.2)",
                 tension: 0.3,
                 fill: true
             }]
-        },
-        options: {
-            responsive: true,
-            plugins: {
-                legend: { display: true }
-            },
-            scales: {
-                y: {
-                    beginAtZero: true
-                }
-            }
         }
     });
 
