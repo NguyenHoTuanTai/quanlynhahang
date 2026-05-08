@@ -21,8 +21,7 @@ from django.urls import reverse
 from django.contrib.admin.views.decorators import staff_member_required
 from django.db.models import Sum, F, DecimalField, ExpressionWrapper
 from django.db.models.functions import TruncDate
-from django.core.serializers.json import DjangoJSONEncoder
-import json
+
 
 def trang_chu(request):
     # Lấy toàn bộ Loại món và Món ăn từ Database
@@ -1203,7 +1202,7 @@ def thong_ke(request):
         "da_thanh_toan": da_thanh_toan,
         "mon_ban_chay": mon_ban_chay,
         "doanh_thu_loai": doanh_thu_loai,
-        "doanh_thu_theo_ngay_json": json.dumps(doanh_thu_theo_ngay, cls=DjangoJSONEncoder),
+        "doanh_thu_theo_ngay": doanh_thu_theo_ngay,
     }
 
     return render(request, "thong_ke.html", context)
