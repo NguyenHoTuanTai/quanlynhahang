@@ -1,13 +1,12 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import MonAn, LoaiMon, DanhGia, ThanhToan
-from .models import Ban, DatBan, DonHang, ChiTietDonHang, User, Profile, DanhGia
-from django.http import HttpResponse
+from .models import Ban, DatBan, DonHang, ChiTietDonHang, User, Profile, DanhGia, Voucher, ThanhToan
+from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from datetime import datetime, timedelta
 from django.contrib.auth.decorators import user_passes_test, login_required
 from django.db.models import Avg
 from django.core.paginator import Paginator
-from django.shortcuts import render, redirect
 from django.db.models import Q
 from django.utils import timezone
 from django.contrib.auth.password_validation import validate_password
@@ -16,6 +15,14 @@ from django.core.exceptions import ValidationError
 from .models import DonHang, ThanhToan
 import random
 import string
+import qrcode, base64
+from io import BytesIO
+from django.urls import reverse
+from django.contrib.admin.views.decorators import staff_member_required
+from django.db.models import Sum, F, DecimalField, ExpressionWrapper
+from django.db.models.functions import TruncDate
+from django.core.serializers.json import DjangoJSONEncoder
+import json
 
 def trang_chu(request):
     # Lấy toàn bộ Loại món và Món ăn từ Database
@@ -34,7 +41,6 @@ def trang_chu(request):
     if loai_id and loai_id.isdigit():
         danh_sach_mon = danh_sach_mon.filter(loai_mon_id=loai_id)
 
-    # ĐOẠN NÀY DƯ THỪA: Đã lấy ở trên rồi, gọi lại sẽ làm mất kết quả filter ở trên
     # danh_sach_loai = LoaiMon.objects.all()
     # danh_sach_mon = MonAn.objects.all()
 
@@ -124,7 +130,6 @@ def dat_ban_view(request):
         gio_str = request.POST.get('gio_dat')     
         so_nguoi = request.POST.get('so_nguoi')
         ghi_chu = request.POST.get('ghi_chu', '')
-        tien_coc = int(request.POST.get('tong_tien_coc', 0))
 
         if not so_nguoi:
             messages.error(request, "Vui lòng nhập số người")
@@ -132,9 +137,7 @@ def dat_ban_view(request):
 
         so_nguoi = int(so_nguoi)
         
-        if tien_coc == 0:
-            messages.error(request, "Vui lòng chọn loại bàn trước khi đặt!")
-            return redirect('dat_ban')
+        
 
         # Validate ngày tháng: Không cho đặt lùi về ngày trong quá khứ
         try:
@@ -158,7 +161,6 @@ def dat_ban_view(request):
                 'gio_dat': gio_str,
                 'so_nguoi': so_nguoi,
                 'ghi_chu': ghi_chu,
-                'tong_tien_coc': tien_coc
             }
             messages.warning(request, "Vui lòng đăng nhập tài khoản để hoàn tất đặt bàn!")
             return redirect('/login/') 
@@ -171,8 +173,7 @@ def dat_ban_view(request):
             ngay_dat=ngay,
             gio_dat=gio_str,
             so_nguoi=so_nguoi,
-            ghi_chu=ghi_chu,
-            tong_tien_coc=tien_coc,  
+            ghi_chu=ghi_chu,  
             ban=None,  # Chờ nhân viên xếp bàn sau
             trang_thai='ChoXacNhan'
         )
@@ -237,7 +238,7 @@ def man_hinh_nhan_vien(request):
         'danh_sach_ban': danh_sach_ban,
         'don_hang_dang_cho': don_hang_dang_cho,
     })
-
+@staff_member_required
 def quan_ly_dat_ban(request):
     # View dùng cho Admin/Nhân viên quản lý các booking của khách
     if request.method == "POST":
@@ -327,6 +328,9 @@ def thuc_don(request):
     except (TypeError, ValueError):
         ban_id = None
 
+    if ban_id and not (request.user.is_staff or request.user.is_superuser):
+        messages.error(request, "Bạn không có quyền thêm món.")
+        return redirect("thuc_don")
     ban = Ban.objects.filter(id=ban_id).first() if ban_id else None
 
     # ===== FILTER =====
@@ -813,35 +817,64 @@ def thanh_toan_don(request, don_id):
 
 
 
-
-
-
 def xu_ly_thanh_toan(request, don_hang_id):
-    don_hang = get_object_or_404(DonHang, id=don_hang_id)
+    # TỐI ƯU 1: Dùng select_related để kéo luôn data khách hàng và hạng từ đầu
+    don_hang = get_object_or_404(DonHang.objects.select_related('khach_hang__hang_thanh_vien', 'ban', 'voucher'), id=don_hang_id)
     chi_tiet_don = don_hang.chitietdonhang_set.all()
+
+    if request.method == 'GET':
+        # Nếu đơn hàng chưa thanh toán xong mà lỡ dính khách hàng (do test thử), thì gỡ ra
+        if don_hang.trang_thai_don != 'DaThanhToan' and don_hang.khach_hang:
+            don_hang.khach_hang = None
+            don_hang.save()
     
     # 1. TÍNH TIỀN CƠ BẢN VÀ THUẾ VAT (8%)
-    tong_tien_mon = sum(item.thanh_tien for item in chi_tiet_don)
-    thue_vat = int(float(tong_tien_mon) * 0.08)
+    tong_tien_mon = float(sum(item.thanh_tien for item in chi_tiet_don)) 
+    thue_vat = int(tong_tien_mon * 0.08)
+    
+    # --- THÊM MỚI: LẤY TIỀN CỌC TỪ ĐẶT BÀN ---
+    tien_coc = 0
+    if don_hang.ban_id:
+        # Tùy theo logic của bồ, khách ngồi ăn thường là trạng thái DaNhanBan
+        dat_ban = DatBan.objects.filter(
+            ban_id=don_hang.ban_id, 
+            trang_thai__in=['DaXacNhan', 'DaNhanBan'] 
+        ).first()
+        if dat_ban and dat_ban.tong_tien_coc:
+            tien_coc = int(dat_ban.tong_tien_coc)
+    # -----------------------------------------
     
     giam_gia_voucher = 0
     thong_bao_khach = ""
     thong_bao_voucher = ""
+    voucher_hop_le = None # Biến tạm để lưu object voucher nếu mã đúng
 
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        # --- LUÔN KIỂM TRA VOUCHER ĐẦU TIÊN ---
+        # --- KIỂM TRA VOUCHER TỪ DATABASE ---
         ma_voucher = request.POST.get('voucher_code', '').strip()
-        if ma_voucher == 'GIAM50K':
-            giam_gia_voucher = 50000
-            thong_bao_voucher = "✅ Đã áp dụng mã GIAM50K (-50.000đ)"
-        elif ma_voucher != '':
-            thong_bao_voucher = "❌ Mã giảm giá không hợp lệ hoặc đã hết hạn!"
+        if ma_voucher:
+            try:
+                voucher_db = Voucher.objects.get(ma_code__iexact=ma_voucher)
+                is_valid, msg = voucher_db.hop_le()
+                
+                if is_valid:
+                    voucher_hop_le = voucher_db
+                    # Tính tiền giảm dựa theo loại % hay tiền mặt
+                    if voucher_db.loai_giam == 'TienMat':
+                        giam_gia_voucher = int(voucher_db.gia_tri)
+                    else: # PhanTram
+                        giam_gia_voucher = int(tong_tien_mon * (voucher_db.gia_tri / 100.0))
+                    
+                    thong_bao_voucher = f"✅ Đã áp dụng mã {voucher_db.ma_code} (-{giam_gia_voucher:,.0f}đ)"
+                else:
+                    thong_bao_voucher = f"❌ {msg}"
+            except Voucher.DoesNotExist:
+                thong_bao_voucher = "❌ Mã giảm giá không tồn tại!"
 
         # --- NÚT 1: TÌM KHÁCH HÀNG BẰNG SĐT ---
         if action == 'tim_khach_hang':
-            # Dùng replace để triệt tiêu mọi khoảng trắng lỡ tay gõ dư
             sdt_nhap = request.POST.get('so_dien_thoai', '').strip().replace(" ", "")
             
             if not sdt_nhap:
@@ -849,14 +882,27 @@ def xu_ly_thanh_toan(request, don_hang_id):
                 don_hang.khach_hang = None
                 don_hang.save()
             else:
-                # Bắt đầu tìm trong bảng Profile
-                khach = Profile.objects.filter(so_dien_thoai=sdt_nhap).first()
+                # TỐI ƯU 2: Kéo luôn 'user' và 'hang_thanh_vien' ra cùng lúc
+                khach = Profile.objects.select_related('user', 'hang_thanh_vien').filter(so_dien_thoai=sdt_nhap).first()
                 
                 if khach:
-                    don_hang.khach_hang = khach
-                    don_hang.save()
-                    # Thêm thông báo thành công cho nhân viên yên tâm
-                    thong_bao_khach = f"✅ Đã tìm thấy khách: {khach.user.username}" 
+                    # TÍNH NĂNG CHỐNG GIAN LẬN
+                    khach_dang_o_ban_khac = DonHang.objects.filter(
+                        khach_hang=khach
+                    ).exclude(
+                        trang_thai_don='DaThanhToan'
+                    ).exclude(
+                        id=don_hang.id
+                    ).exists()
+
+                    if khach_dang_o_ban_khac:
+                        don_hang.khach_hang = None
+                        don_hang.save()
+                        thong_bao_khach = f"❌ Lỗi: SĐT này đang được áp dụng ở một bàn khác chưa thanh toán!"
+                    else:
+                        don_hang.khach_hang = khach
+                        don_hang.save()
+                        thong_bao_khach = f"✅ Đã tìm thấy khách: {khach.user.username}" 
                 else:
                     don_hang.khach_hang = None
                     don_hang.save()
@@ -867,68 +913,297 @@ def xu_ly_thanh_toan(request, don_hang_id):
             giam_gia_tv_chot = 0
             if don_hang.khach_hang and don_hang.khach_hang.hang_thanh_vien:
                 phan_tram = don_hang.khach_hang.hang_thanh_vien.phan_tram_giam_gia or 0
-                giam_gia_tv_chot = int(float(tong_tien_mon) * (phan_tram / 100.0))
+                giam_gia_tv_chot = int(tong_tien_mon * (phan_tram / 100.0))
             
-            tong_thanh_toan_chot = float(tong_tien_mon) + thue_vat - giam_gia_tv_chot - giam_gia_voucher
+            # --- CẬP NHẬT: Trừ thêm tiền cọc vào tổng thanh toán chốt ---
+            tong_thanh_toan_chot = tong_tien_mon + thue_vat - giam_gia_tv_chot - giam_gia_voucher - tien_coc
             tong_thanh_toan_chot = max(0, int(tong_thanh_toan_chot)) 
 
             phuong_thuc = request.POST.get('phuong_thuc', 'TienMat')
-            
-            # Đổi tên hiển thị cho đẹp để đưa vào thông báo
             kieu_thanh_toan = "Tiền mặt" if phuong_thuc == "TienMat" else "Chuyển khoản (QR)"
 
+            # Ghi nhận thanh toán
             thanh_toan, created = ThanhToan.objects.get_or_create(don_hang=don_hang)
             thanh_toan.phuong_thuc = phuong_thuc
             thanh_toan.trang_thai_thanh_toan = 'Đã thanh toán'
             thanh_toan.thoi_gian_thanh_toan = timezone.now()
             thanh_toan.save()
 
+            # Cập nhật đơn hàng (Lưu lại thông tin voucher và tiền đã giảm)
             don_hang.tong_tien = tong_thanh_toan_chot
             don_hang.trang_thai_don = 'DaThanhToan'
+            don_hang.voucher = voucher_hop_le
+            don_hang.tien_giam_gia = giam_gia_voucher + giam_gia_tv_chot # Lưu tổng tiền được giảm
+            don_hang.save()
+
+            # Trừ số lượng lượt dùng của Voucher trong DB
+            if voucher_hop_le:
+                voucher_hop_le.so_luong_da_dung += 1
+                voucher_hop_le.save()
             
+            # Giải phóng bàn
             if don_hang.ban:
                 don_hang.ban.trang_thai = 'Trong' 
                 don_hang.ban.save()
-            don_hang.save()
             
+            # Giải phóng đặt bàn (nếu có)
+            if don_hang.ban_id:
+                dat_ban = DatBan.objects.filter(
+                    ban_id=don_hang.ban_id, 
+                    trang_thai__in=['ChoXacNhan', 'DaXacNhan', 'DaNhanBan']
+                ).first()
+                if dat_ban:
+                    dat_ban.trang_thai = 'DaThanhToan'
+                    dat_ban.save()
+
+            diem_cong = 0
+            # TÍNH ĐIỂM TÍCH LŨY VÀ TỰ ĐỘNG THĂNG HẠNG
             if don_hang.khach_hang:
                 diem_cong = int(tong_thanh_toan_chot / 100000)
-                don_hang.khach_hang.diem_tich_luy += diem_cong
-                don_hang.khach_hang.save()
-            
-            
-            dat_ban = DatBan.objects.filter(ban=don_hang.ban_id).first()
+                if diem_cong > 0:
+                    don_hang.khach_hang.diem_tich_luy += diem_cong
+                    don_hang.khach_hang.save() 
 
-            if dat_ban:
-                dat_ban.trang_thai = 'DaThanhToan'
-                dat_ban.save()
-
-            # 🔥 BẮN THÔNG BÁO THÀNH CÔNG VÀ CHUYỂN HƯỚNG VỀ ĐÚNG TRANG SƠ ĐỒ BÀN
-            messages.success(request, f"Thanh toán thành công đơn #{don_hang.id} bằng {kieu_thanh_toan}!")
+            if diem_cong > 0:
+                messages.success(request, f"Thanh toán thành công đơn #{don_hang.id} bằng {kieu_thanh_toan}! Khách được cộng {diem_cong} điểm.")
+            else:
+                messages.success(request, f"Thanh toán thành công đơn #{don_hang.id} bằng {kieu_thanh_toan}!")
+            
             return redirect('dashboard') 
 
-    # 2. TÍNH TOÁN LẠI ĐỂ HIỂN THỊ RA GIAO DIỆN MỖI LẦN TẢI
+    # 2. TÍNH TOÁN LẠI VÀ TẠO MÃ QR ĐỂ HIỂN THỊ RA GIAO DIỆN
     giam_gia_thanh_vien = 0
-    if don_hang.khach_hang and don_hang.khach_hang.hang_thanh_vien:
-        phan_tram = don_hang.khach_hang.hang_thanh_vien.phan_tram_giam_gia or 0
-        giam_gia_thanh_vien = int(float(tong_tien_mon) * (phan_tram / 100.0))
+    khach_hien_tai = don_hang.khach_hang 
+    
+    if khach_hien_tai and hasattr(khach_hien_tai, 'hang_thanh_vien') and khach_hien_tai.hang_thanh_vien:
+        phan_tram = khach_hien_tai.hang_thanh_vien.phan_tram_giam_gia or 0
+        giam_gia_thanh_vien = int(tong_tien_mon * (phan_tram / 100.0))
 
-    tong_thanh_toan = float(tong_tien_mon) + thue_vat - giam_gia_thanh_vien - giam_gia_voucher
+    # --- CẬP NHẬT: Trừ thêm tiền cọc vào tổng hiển thị ---
+    tong_thanh_toan = tong_tien_mon + thue_vat - giam_gia_thanh_vien - giam_gia_voucher - tien_coc
     tong_thanh_toan = max(0, int(tong_thanh_toan))
     
-    diem_tich_luy_du_kien = int(tong_thanh_toan / 100000) if don_hang.khach_hang else 0
+    diem_tich_luy_du_kien = int(tong_thanh_toan / 100000) if khach_hien_tai else 0
+
+    # --- TẠO MÃ QR BASE64 TRỰC TIẾP TẠI ĐÂY ---
+    # Lấy đường dẫn của hàm qr_thanh_toan_nhanh bên dưới
+    duong_dan_tuong_doi = reverse('qr_thanh_toan_nhanh', args=[don_hang.id])
+    link_quet_that = request.build_absolute_uri(duong_dan_tuong_doi)
+    
+    qr = qrcode.QRCode(version=1, box_size=10, border=4)
+    qr.add_data(link_quet_that)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    
+    buffer = BytesIO()
+    img.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
+    # ------------------------------------------
 
     context = {
         'don': don_hang,
         'chi_tiet_don': chi_tiet_don,
-        'khach_hang': don_hang.khach_hang,
+        'khach_hang': khach_hien_tai,
         'tong_tien_mon': tong_tien_mon,
         'thue_vat': thue_vat,
         'giam_gia_thanh_vien': giam_gia_thanh_vien,
-        'giam_gia_voucher': int(giam_gia_voucher),
+        'giam_gia_voucher': giam_gia_voucher,
+        'tien_coc': tien_coc, # --- THÊM MỚI: Truyền tiền cọc ra HTML ---
         'tong_thanh_toan': tong_thanh_toan,
         'diem_tich_luy_du_kien': diem_tich_luy_du_kien,
         'thong_bao_khach': thong_bao_khach,
-        'thong_bao_voucher': thong_bao_voucher
+        'thong_bao_voucher': thong_bao_voucher,
+        'qr_code': qr_base64 
     }
     return render(request, 'thanh_toan.html', context)
+
+# 3. HÀM DÀNH CHO KHÁCH (ĐIỆN THOẠI) KHI QUÉT MÃ QR THÀNH CÔNG
+def qr_thanh_toan_nhanh(request, don_hang_id):
+    don_hang = get_object_or_404(DonHang, id=don_hang_id)
+    chi_tiet_don = don_hang.chitietdonhang_set.all() # Sửa nhẹ chỗ này cho nhất quán
+    
+    tong_tien_mon = float(sum(item.thanh_tien for item in chi_tiet_don))
+    thue_vat = int(tong_tien_mon * 0.08)
+    
+    giam_gia_thanh_vien = 0
+    if don_hang.khach_hang and hasattr(don_hang.khach_hang, 'hang_thanh_vien') and don_hang.khach_hang.hang_thanh_vien:
+        phan_tram = don_hang.khach_hang.hang_thanh_vien.phan_tram_giam_gia or 0
+        giam_gia_thanh_vien = int(tong_tien_mon * (phan_tram / 100.0))
+        
+    tong_thanh_toan = tong_tien_mon + thue_vat - giam_gia_thanh_vien
+    tong_thanh_toan = max(0, int(tong_thanh_toan))
+
+    if don_hang.trang_thai_don != 'DaThanhToan':
+        don_hang.trang_thai_don = 'DaThanhToan'
+        don_hang.tong_tien = tong_thanh_toan 
+        don_hang.save()
+
+        # Ghi nhận log thanh toán QR
+        ThanhToan.objects.get_or_create(
+            don_hang=don_hang,
+            defaults={
+                'phuong_thuc': 'ChuyenKhoan',
+                'trang_thai_thanh_toan': 'Đã thanh toán',
+                'thoi_gian_thanh_toan': timezone.now()
+            }
+        )
+
+        if don_hang.ban:
+            don_hang.ban.trang_thai = 'Trong'
+            don_hang.ban.save()
+
+        if don_hang.ban_id:
+            dat_ban = DatBan.objects.filter(
+                ban_id=don_hang.ban_id, 
+                trang_thai__in=['ChoXacNhan', 'DaXacNhan', 'DaNhanBan']
+            ).first()
+            if dat_ban:
+                dat_ban.trang_thai = 'DaThanhToan'
+                dat_ban.save()
+                
+    context = {
+        'don': don_hang,
+        'chi_tiet_don': chi_tiet_don,
+        'tong_thanh_toan': tong_thanh_toan,
+    }
+    return render(request, 'thanh_toan_mobile.html', context)
+
+
+
+# 4. HÀM CHECK API 
+
+def kiem_tra_trang_thai_don(request, don_hang_id):
+    don_hang = get_object_or_404(DonHang, id=don_hang_id)
+    return JsonResponse({'trang_thai': don_hang.trang_thai_don})
+
+def thong_ke(request):
+    
+    # =====================
+    # FILTER DATE
+    # =====================
+    start_date = request.GET.get("start_date")
+    end_date = request.GET.get("end_date")
+
+    thanh_toan_base = ThanhToan.objects.all()
+
+    if start_date:
+        start_date = datetime.strptime(start_date, "%Y-%m-%d").date()
+        thanh_toan_base = thanh_toan_base.filter(
+            thoi_gian_thanh_toan__date__gte=start_date
+        )
+
+    if end_date:
+        end_date = datetime.strptime(end_date, "%Y-%m-%d").date()
+        thanh_toan_base = thanh_toan_base.filter(
+            thoi_gian_thanh_toan__date__lte=end_date
+        )
+
+    # =====================
+    # DON HANG THEO THANH TOAN FILTER
+    # =====================
+    don_hang_base = DonHang.objects.filter(
+        thanhtoan__in=thanh_toan_base
+    ).distinct()
+
+    # =====================
+    # TỔNG ĐƠN
+    # =====================
+    tong_don = don_hang_base.count()
+
+    # =====================
+    # ĐÃ THANH TOÁN
+    # =====================
+    don_da_tt = don_hang_base.filter(trang_thai_don="DaThanhToan")
+    da_thanh_toan = don_da_tt.count()
+
+    # =====================
+    # DOANH THU
+    # =====================
+    tong_doanh_thu = don_da_tt.aggregate(
+        tong=Sum("tong_tien")
+    )["tong"] or 0
+
+    # =====================
+    # DOANH THU HÔM NAY
+    # =====================
+    hom_nay = timezone.now().date()
+
+    doanh_thu_hom_nay = DonHang.objects.filter(
+        trang_thai_don="DaThanhToan",
+        thanhtoan__thoi_gian_thanh_toan__date=hom_nay
+    ).aggregate(
+        tong=Sum("tong_tien")
+    )["tong"] or 0
+
+    # =====================
+    # TIỀN MẶT / CHUYỂN KHOẢN
+    # =====================
+    tien_mat = thanh_toan_base.filter(
+        phuong_thuc="TienMat"
+    ).aggregate(
+        tong=Sum("don_hang__tong_tien")
+    )["tong"] or 0
+
+    chuyen_khoan = thanh_toan_base.filter(
+        phuong_thuc="ChuyenKhoan"
+    ).aggregate(
+        tong=Sum("don_hang__tong_tien")
+    )["tong"] or 0
+
+    # =====================
+    # MÓN BÁN CHẠY
+    # =====================
+    mon_ban_chay = ChiTietDonHang.objects.filter(
+        don_hang__in=don_hang_base,
+        don_hang__trang_thai_don="DaThanhToan"
+    ).values(
+        "mon_an__ten_mon"
+    ).annotate(
+        doanh_thu=Sum(
+            ExpressionWrapper(
+                F("so_luong") * F("gia_luc_ban"),
+                output_field=DecimalField()
+            )
+        )
+    ).order_by("-doanh_thu")[:5]
+
+    # =====================
+    # DOANH THU THEO LOẠI
+    # =====================
+    doanh_thu_loai = ChiTietDonHang.objects.filter(
+        don_hang__in=don_hang_base,
+        don_hang__trang_thai_don="DaThanhToan"
+    ).values(
+        "mon_an__loai_mon__ten_loai"
+    ).annotate(
+        doanh_thu=Sum(
+            ExpressionWrapper(
+                F("so_luong") * F("gia_luc_ban"),
+                output_field=DecimalField()
+            )
+        )
+    ).order_by("-doanh_thu")
+    
+    doanh_thu_theo_ngay = list(
+        ThanhToan.objects.filter(
+            don_hang__trang_thai_don="DaThanhToan"
+        ).annotate(
+            ngay=TruncDate("thoi_gian_thanh_toan")
+        ).values("ngay").annotate(
+            tong=Sum("don_hang__tong_tien")
+        ).order_by("ngay")
+    )
+    
+    context = {
+        "tong_don": tong_don,
+        "tong_doanh_thu": tong_doanh_thu,
+        "doanh_thu_hom_nay": doanh_thu_hom_nay,
+        "tien_mat": tien_mat,
+        "chuyen_khoan": chuyen_khoan,
+        "da_thanh_toan": da_thanh_toan,
+        "mon_ban_chay": mon_ban_chay,
+        "doanh_thu_loai": doanh_thu_loai,
+        "doanh_thu_theo_ngay_json": json.dumps(doanh_thu_theo_ngay, cls=DjangoJSONEncoder),
+    }
+
+    return render(request, "thong_ke.html", context)

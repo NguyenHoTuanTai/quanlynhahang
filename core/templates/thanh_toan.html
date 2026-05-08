@@ -61,7 +61,7 @@
             </div>
 
             <div class="col-lg-5">
-                <form method="POST">
+                <form method="POST" id="form_thanh_toan">
                     {% csrf_token %}
                     <input type="hidden" name="giam_gia_voucher_hidden" value="{{ giam_gia_voucher|default:0 }}">
 
@@ -98,6 +98,7 @@
                             {% endif %}
                         </div>
                     </div>
+                    
                     <div class="card shadow-sm mb-3">
                         <div class="card-body">
                             <label class="form-label fw-bold">Mã giảm giá (Voucher)</label>
@@ -134,6 +135,12 @@
                             </div>
                             {% endif %}
                             
+                            {% if tien_coc > 0 %}
+                            <div class="summary-row" style="color: #fd7e14; font-weight: bold;">
+                                <span>Đã đặt cọc:</span>
+                                <span>- {{ tien_coc }} đ</span>
+                            </div>
+                            {% endif %}
                             <div class="summary-row total-row mt-2">
                                 <span>TỔNG CỘNG:</span>
                                 <span>{{ tong_thanh_toan }} đ</span>
@@ -160,14 +167,26 @@
 
                             <div id="qr_section" class="text-center mt-3 p-3 border rounded bg-white shadow-sm">
                                 <p class="mb-2 text-muted small">Quét mã để thanh toán <strong>{{ tong_thanh_toan }} đ</strong></p>
-                                <img src="https://upload.wikimedia.org/wikipedia/commons/d/d0/QR_code_for_mobile_English_Wikipedia.svg" alt="Mã QR" class="img-fluid" style="max-width: 150px;">
+                                <p class="text-success fw-bold small mb-2"><i class="bi bi-phone-vibrate"></i> Dùng điện thoại quét mã hoặc click vào ảnh</p>
+                                
+                                <div class="position-relative d-inline-block">
+                                    <img id="qr_image_dynamic" src="data:image/png;base64,{{ qr_code }}" 
+                                         alt="Mã QR Thanh Toán" 
+                                         class="img-fluid border rounded" 
+                                         style="max-width: 200px; cursor: pointer; transition: transform 0.2s;"
+                                         onmouseover="this.style.transform='scale(1.05)'"
+                                         onmouseout="this.style.transform='scale(1)'"
+                                         onclick="giaLapThanhToanQR()"
+                                         title="Quét bằng điện thoại để tự động chốt, hoặc Click để test trên máy tính">
+                                </div>
+                                <p class="mt-2 text-primary fst-italic small" id="qr_status_text"><span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Đang chờ khách quét...</p>
                             </div>
                         </div>
                     </div>
 
                     <div class="d-flex gap-2">
                         <a href="javascript:history.back()" class="btn btn-secondary w-50">Quay lại</a>
-                        <button type="submit" name="action" value="chot_don_thanh_toan" class="btn btn-success w-50 fw-bold">
+                        <button type="submit" name="action" value="chot_don_thanh_toan" class="btn btn-success w-50 fw-bold" id="btn_chot_don">
                             Xác nhận thanh toán
                         </button>
                     </div>
@@ -178,18 +197,81 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Bật/tắt hiển thị mã QR mượt mà
+        let kiemTraDonInterval = null;
+
+        // Bật/tắt hiển thị mã QR và quản lý việc lắng nghe điện thoại quét
         function toggleQR() {
             const qrSection = document.getElementById('qr_section');
             const isChuyenKhoan = document.getElementById('chuyen_khoan').checked;
+            const btnChotDon = document.getElementById('btn_chot_don');
             
             if (isChuyenKhoan) {
                 qrSection.style.display = 'block';
+                // Ẩn nút "Xác nhận" vì chuyển sang chế độ tự động chốt đơn
+                btnChotDon.style.display = 'none'; 
+                
+                // Bật chức năng hỏi Server liên tục xem điện thoại quét chưa (2 giây 1 lần)
+                if (!kiemTraDonInterval) {
+                    kiemTraDonInterval = setInterval(kiemTraTrangThaiBangDienThoai, 2000);
+                }
             } else {
                 qrSection.style.display = 'none';
+                btnChotDon.style.display = 'block';
+                
+                // Tắt chức năng hỏi Server nếu khách quay xe dùng Tiền mặt
+                if (kiemTraDonInterval) {
+                    clearInterval(kiemTraDonInterval);
+                    kiemTraDonInterval = null;
+                }
             }
         }
         
+        // HÀM 1: LẮNG NGHE ĐIỆN THOẠI QUÉT
+        function kiemTraTrangThaiBangDienThoai() {
+            fetch(`/api/kiem-tra-don/{{ don.id }}/`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.trang_thai === 'DaThanhToan') {
+                    // Dừng quét
+                    clearInterval(kiemTraDonInterval);
+                    document.getElementById('qr_status_text').innerHTML = "✅ KHÁCH ĐÃ THANH TOÁN!";
+                    document.getElementById('qr_status_text').classList.replace('text-primary', 'text-success');
+                    
+                    alert("🎉 Tinh tinh! Khách đã quét mã QR thành công. Đơn hàng đã tự động chốt!");
+                    window.location.href = "{% url 'dashboard' %}"; // Tự động đá về dashboard
+                }
+            })
+            .catch(error => console.log("Vẫn đang chờ..."));
+        }
+
+        // HÀM 2: GIẢ LẬP THANH TOÁN KHI CLICK THẲNG VÀO ẢNH (Phòng hờ test trên PC)
+        function giaLapThanhToanQR() {
+            if (confirm("Hệ thống: Khách hàng đã chuyển khoản thành công. Xác nhận chốt đơn?")) {
+                let csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+                let form = document.createElement('form');
+                form.method = 'POST';
+                form.action = '';
+                
+                let data = {
+                    'csrfmiddlewaretoken': csrfToken,
+                    'action': 'chot_don_thanh_toan',
+                    'phuong_thuc': 'ChuyenKhoan'
+                };
+                
+                for (let key in data) {
+                    let input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = key;
+                    input.value = data[key];
+                    form.appendChild(input);
+                }
+                
+                document.body.appendChild(form);
+                form.submit();
+            }
+        }
+
+        // Chạy hàm kiểm tra ngay khi load trang
         document.addEventListener("DOMContentLoaded", toggleQR);
     </script>
 </body>

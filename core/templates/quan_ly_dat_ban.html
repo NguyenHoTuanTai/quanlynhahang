@@ -10,25 +10,19 @@
     
     <style>
         /* Đổi màu nền trang web thành xám nhạt cho đỡ chói */
-        body {
-            background: #f5f5f5;
-        }
+        body { background: #f5f5f5; }
 
         /* Bo tròn góc cho các thẻ card (chứa thông tin đơn đặt bàn) */
-        .card {
-            border-radius: 12px;
-        }
+        .card { border-radius: 12px; }
 
         /* In đậm chữ trạng thái */
-        .status {
-            font-weight: bold;
-        }
+        .status { font-weight: bold; }
 
         /* Bảng màu cho từng loại trạng thái */
-        .ChoXacNhan { color: orange; } /* Chờ xác nhận: màu cam */
-        .DaXacNhan { color: green; }  /* Đã xác nhận: màu xanh lá */
-        .DaHuy { color: red; }        /* Đã hủy: màu đỏ */
-        .DaThanhToan { color: green}
+        .ChoXacNhan { color: orange; } 
+        .DaXacNhan { color: green; }  
+        .DaHuy { color: red; }        
+        .DaThanhToan { color: green; }
 
         /* CSS cho cái khung chứa bộ lọc ở trên cùng */
         .filter-box {
@@ -38,20 +32,14 @@
             margin-bottom: 20px;
         }
 
-        /* ========================================== */
-        /* CSS CHO CÁI POPUP (MODAL) HỎI XÁC NHẬN XÓA */
-        /* Mặc định là ẩn (display: none), làm mờ màn hình ở dưới (background: rgba), luôn nằm đè lên trên (position: fixed) */
-        /* ========================================== */
         #deleteModal {
             display: none;
             position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
+            top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.5);
-            justify-content: center; /* Căn giữa popup theo chiều ngang */
-            align-items: center;     /* Căn giữa popup theo chiều dọc */
+            justify-content: center; 
+            align-items: center;     
+            z-index: 9999;
         }
     </style>
 </head>
@@ -77,12 +65,8 @@
             </div>
 
             <div class="col-md-4">
-                <select id="filterCoc" class="form-select">
-                    <option value="">-- Tất cả tiền cọc --</option>
-                    <option value="0">Không cọc</option>
-                    <option value="500000">500k</option>
-                    <option value="1000000">1 triệu</option>
-                </select>
+                <input type="text" id="filterTenKhach" class="form-control"
+                       placeholder="Nhập tên khách hàng...">
             </div>
 
             <div class="col-md-4">
@@ -102,32 +86,49 @@
          data-coc="{{ item.tong_tien_coc|default:0 }}">
 
         <div class="card-body">
-            <div class="row">
-                
-                <div class="col-md-8">
-                    <p><b>Khách:</b> {{ item.ten_khach_hang }}</p>
-                    <p><b>SĐT:</b> {{ item.so_dien_thoai }}</p>
-                    <p><b>Ngày:</b> {{ item.ngay_dat }} - {{ item.gio_dat }}</p>
-                    <p><b>Số người:</b> {{ item.so_nguoi }}</p>
-                    <p><b>Cọc:</b> {{ item.tong_tien_coc|default:0 }} đ</p>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="id" value="{{ item.id }}">
 
-                    <p class="status {{ item.trang_thai }}">
-                        {{ item.trang_thai }}
-                    </p>
-                </div>
+                <div class="row">
+                    
+                    <div class="col-md-7">
+                        <p class="mb-1"><b>Khách:</b> {{ item.ten_khach_hang }}</p>
+                        <p class="mb-1"><b>SĐT:</b> {{ item.so_dien_thoai }}</p>
+                        <p class="mb-1"><b>Ngày:</b> {{ item.ngay_dat }} - {{ item.gio_dat }}</p>
 
-                <div class="col-md-4">
+                        <div class="d-flex align-items-center mb-1">
+                            <b class="me-2" style="width: 85px;">Số người:</b>
+                            <input type="number" name="so_nguoi" class="form-control form-control-sm w-50 so-nguoi-input" 
+                                   value="{{ item.so_nguoi }}" min="1" 
+                                   onchange="locBanPhuHop(this)" 
+                                   {% if item.trang_thai == "DaHuy" %}disabled{% endif %}>
+                        </div>
+                        
+                        
 
-                    <form method="POST">
-                        {% csrf_token %}
-                        <input type="hidden" name="id" value="{{ item.id }}">
+                        <p class="status {{ item.trang_thai }} mt-2 mb-0">
+                            {{ item.trang_thai }}
+                        </p>
+                    </div>
 
-                        <select name="ban_id" class="form-select mb-2" {% if item.trang_thai == "DaHuy" %}disabled{% endif %}>
+                    <div class="col-md-5">
+                        
+                        <select class="form-select mb-2 loai-ban-filter" onchange="locBanPhuHop(this)" {% if item.trang_thai == "DaHuy" %}disabled{% endif %}>
+                            <option value="Thuong" {% if item.tong_tien_coc != 1000000 %}selected{% endif %}>Bàn Tiêu Chuẩn</option>
+                            <option value="VIP" {% if item.tong_tien_coc == 1000000 %}selected{% endif %}>Bàn VIP</option>
+                            <option value="all">-- Tất cả loại bàn --</option>
+                        </select>
+
+                        <select name="ban_id" class="form-select mb-2 chon-ban-dropdown" {% if item.trang_thai == "DaHuy" %}disabled{% endif %}>
                             <option value="">-- Chọn bàn --</option>
 
                             {% for ban in ban_list %}
                                 {% if ban.trang_thai == "Trong" or item.ban.id == ban.id %}
-                                    <option value="{{ ban.id }}" {% if item.ban and item.ban.id == ban.id %}selected{% endif %}>
+                                    <option value="{{ ban.id }}" 
+                                            data-suc-chua="{{ ban.so_ghe }}" 
+                                            data-ten-ban="{{ ban.so_ban }}"
+                                            {% if item.ban and item.ban.id == ban.id %}selected{% endif %}>
                                         {{ ban.so_ban }} ({{ ban.so_ghe }} ghế)
                                     </option>
                                 {% endif %}
@@ -135,33 +136,24 @@
                         </select>
 
                         {% if item.trang_thai == "ChoXacNhan" %}
-                            <button type="submit" name="action" value="confirm" class="btn btn-success btn-sm">
-                                Xác nhận
-                            </button>
-                        
+                            <button type="submit" name="action" value="confirm" class="btn btn-success btn-sm w-100 mb-1">Xác nhận</button>
                         {% elif item.trang_thai == "DaXacNhan" %}
-                            <button type="submit" name="action" value="change_table" class="btn btn-success btn-sm">
-                                Chuyển bàn
-                            </button>
-                        
+                            <button type="submit" name="action" value="change_table" class="btn btn-success btn-sm w-100 mb-1">Cập nhật & Chuyển bàn</button>
                         {% endif %}
 
-                        {% if item.trang_thai != "DaHuy" and item.trang_thai != "DaThanhToan"  %}
-                            <button type="submit" name="action" value="cancel" class="btn btn-danger btn-sm">
-                                Hủy
-                            </button>
-                        {% endif %}
+                        <div class="d-flex justify-content-between">
+                            {% if item.trang_thai != "DaHuy" and item.trang_thai != "DaThanhToan"  %}
+                                <button type="submit" name="action" value="cancel" class="btn btn-danger btn-sm" style="width: 48%;">Hủy</button>
+                            {% endif %}
 
-                        {% if item.trang_thai == "DaHuy" or item.trang_thai == "DaThanhToan" %}
-                            <button type="button" onclick="openDeleteModal('{{ item.id }}')" class="btn btn-outline-danger btn-sm">
-                                Xóa
-                            </button>
-                        {% endif %}
+                            {% if item.trang_thai == "DaHuy" or item.trang_thai == "DaThanhToan" %}
+                                <button type="button" onclick="openDeleteModal('{{ item.id }}')" class="btn btn-outline-danger btn-sm w-100">Xóa</button>
+                            {% endif %}
+                        </div>
 
-                    </form>
-
+                    </div>
                 </div>
-            </div>
+            </form>
         </div>
     </div>
     {% endfor %}
@@ -172,18 +164,11 @@
 <div id="deleteModal">
     <div class="bg-white p-4 rounded text-center" style="width:300px;">
         <h5>Bạn có chắc muốn xóa?</h5>
-
         <form method="POST">
             {% csrf_token %}
             <input type="hidden" name="id" id="delete_id">
-
-            <button type="submit" name="action" value="delete" class="btn btn-danger">
-                Xác nhận
-            </button>
-
-            <button type="button" onclick="closeDeleteModal()" class="btn btn-secondary">
-                Hủy
-            </button>
+            <button type="submit" name="action" value="delete" class="btn btn-danger">Xác nhận</button>
+            <button type="button" onclick="closeDeleteModal()" class="btn btn-secondary">Hủy</button>
         </form>
     </div>
 </div>
@@ -191,45 +176,101 @@
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 
 <script>
-// Hàm mở Modal Xóa
 function openDeleteModal(id) {
     let modal = document.getElementById("deleteModal");
-    modal.style.display = "flex"; // Đổi CSS từ 'none' sang 'flex' để hiện popup lên giữa màn hình
-    document.getElementById("delete_id").value = id; // Nhét cái ID nhận được vào ô input ẩn trong popup để lát submit gửi đi
+    modal.style.display = "flex"; 
+    document.getElementById("delete_id").value = id; 
 }
 
-// Hàm đóng Modal Xóa
 function closeDeleteModal() {
-    document.getElementById("deleteModal").style.display = "none"; // Trả CSS về 'none' để giấu popup đi
+    document.getElementById("deleteModal").style.display = "none"; 
 }
 
-// Hàm Xử lý Lọc dữ liệu ngay trên giao diện (không cần load lại trang)
 function applyFilter() {
-    // Lấy giá trị người dùng đang chọn ở 2 ô Select Box
     let trangThai = document.getElementById("filterTrangThai").value;
-    let coc = document.getElementById("filterCoc").value;
+    let tenKhach = document.getElementById("filterTenKhach").value.toLowerCase();
 
-    // Lấy TẤT CẢ các thẻ bài (card) đơn đặt bàn đang hiển thị
     let items = document.querySelectorAll(".datban-item");
 
-    // Vòng lặp duyệt qua từng cái thẻ đơn đặt bàn một
     items.forEach(item => {
-        let match = true; // Ban đầu mặc định là cho hiển thị (true)
 
-        // Kiểm tra điều kiện 1: Nếu có chọn lọc Trạng Thái, mà data-trangthai của thẻ này KHÔNG GIỐNG thì loại (false)
+        let match = true;
+
+        // lọc trạng thái
         if (trangThai && item.dataset.trangthai !== trangThai) {
             match = false;
         }
 
-        // Kiểm tra điều kiện 2: Nếu có chọn lọc Tiền Cọc, mà data-coc của thẻ này KHÔNG GIỐNG thì loại (false)
-        if (coc && item.dataset.coc !== coc) {
+        // lấy tên khách trong card
+        let tenKhachCard = item.querySelector("p b").parentElement.innerText.toLowerCase();
+
+        // lọc tên khách
+        if (tenKhach && !tenKhachCard.includes(tenKhach)) {
             match = false;
         }
 
-        // Kết quả: Nếu match vẫn là true thì hiện thẻ này (block), nếu false thì giấu thẻ này đi (none)
         item.style.display = match ? "block" : "none";
     });
 }
+
+// Hàm xử lý chung: Vừa cập nhật tiền cọc, vừa lọc bàn phù hợp
+function locBanPhuHop(elementTrigger) {
+    let formContainer = elementTrigger.closest('form'); 
+    let selectLoaiBan = formContainer.querySelector('.loai-ban-filter');
+    let selectChonBan = formContainer.querySelector('.chon-ban-dropdown');
+    
+    let inputSoNguoi = formContainer.querySelector('.so-nguoi-input');
+    
+    if (!selectChonBan) return;
+
+    
+    // 2. Lấy "Số người" mới nhất từ Input để đi tìm bàn vừa vặn
+    let soNguoiKhachDat = parseInt(inputSoNguoi.value) || 0;
+    let loaiBanMuonChon = selectLoaiBan ? selectLoaiBan.value : 'all';
+
+    let cacOptionBan = selectChonBan.querySelectorAll('option:not([value=""])');
+
+    cacOptionBan.forEach(function(option) {
+        let sucChuaBan = parseInt(option.getAttribute('data-suc-chua')) || 0;
+        let tenBan = (option.getAttribute('data-ten-ban') || "").toLowerCase();
+
+        // Check đủ chỗ ngồi
+        let duChoNgoi = sucChuaBan >= soNguoiKhachDat;
+        
+        // Check khớp loại bàn VIP/Thường theo tên bàn
+        let khopLoaiBan = false;
+        if (loaiBanMuonChon === 'all') {
+            khopLoaiBan = true;
+        } else if (loaiBanMuonChon === 'VIP') {
+            if (tenBan.includes('vip')) khopLoaiBan = true;
+        } else if (loaiBanMuonChon === 'Thuong') {
+            if (!tenBan.includes('vip')) khopLoaiBan = true;
+        }
+
+        // Ẩn/Hiện option bàn dựa trên kết quả
+        if (duChoNgoi && khopLoaiBan) {
+            option.style.display = 'block'; 
+            option.disabled = false;        
+        } else {
+            option.style.display = 'none';
+            option.disabled = true;
+        }
+    });
+
+    // Reset lại ô Chọn bàn nếu bàn đang được chọn bị ẩn (do không đủ chỗ hoặc sai loại bàn)
+    let optionDangChon = selectChonBan.options[selectChonBan.selectedIndex];
+    if (optionDangChon && optionDangChon.disabled) {
+        selectChonBan.value = ""; 
+    }
+}
+
+// Chạy lọc ngay lần đầu mở trang để set đúng các bàn
+document.addEventListener("DOMContentLoaded", function() {
+    document.querySelectorAll('.loai-ban-filter').forEach(dropdown => {
+        // Gửi tham số ảo để chạy hàm filter lần đầu
+        locBanPhuHop(dropdown); 
+    });
+});
 </script>
 
 </body>

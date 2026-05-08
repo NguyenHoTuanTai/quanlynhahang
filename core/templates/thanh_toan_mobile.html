@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thanh Toán Thành Công</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <style>
+        body { background-color: #f8f9fa; }
+        .success-icon { font-size: 5rem; color: #198754; }
+        .receipt-card { border-top: 4px solid #198754; border-radius: 10px; }
+        .dotted-line { border-top: 2px dotted #dee2e6; margin: 15px 0; }
+    </style>
+</head>
+<body>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-sm-12 text-center mb-4">
+            <i class="bi bi-check-circle-fill success-icon"></i>
+            <h2 class="text-success fw-bold mt-2">Thanh Toán Thành Công!</h2>
+            <p class="text-muted">Cảm ơn quý khách đã sử dụng dịch vụ.</p>
+        </div>
+
+        <div class="col-md-6 col-sm-12">
+            <div class="card shadow-sm receipt-card p-3">
+                <div class="text-center mb-3">
+                    <h5 class="fw-bold mb-0">HÓA ĐƠN ĐIỆN TỬ</h5>
+                    <small class="text-muted">Mã đơn: #{{ don.id }}</small>
+                </div>
+                
+                <div class="d-flex justify-content-between mb-2">
+                    <span class="text-muted">Khu vực/Bàn:</span>
+                    <span class="fw-bold">
+                        {% if don.ban %}
+                            Bàn {{ don.ban.so_ban }}
+                        {% else %}
+                            Khách mang về
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="dotted-line"></div>
+
+                <div class="mb-2">
+                    <span class="text-muted fw-bold mb-2 d-block">Chi tiết món:</span>
+                    {% for item in chi_tiet_don %}
+                    <div class="d-flex justify-content-between mb-1">
+                        <span>{{ item.so_luong }}x {{ item.mon_an.ten_mon }}</span>
+                        <span>{{ item.thanh_tien|floatformat:0 }} đ</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted text-center fst-italic small">Không có thông tin chi tiết</p>
+                    {% endfor %}
+                </div>
+
+                <div class="dotted-line"></div>
+
+                <div class="d-flex justify-content-between align-items-center mt-2">
+                    <span class="fw-bold fs-5">TỔNG CỘNG:</span>
+                    <span class="fw-bold fs-4 text-danger">
+                        {{ tong_thanh_toan|floatformat:0 }} đ
+                    </span>
+                </div>
+            </div>
+            
+            <div class="text-center mt-4">
+                <p class="small text-muted mb-3">Vui lòng đưa màn hình này cho nhân viên nếu cần đối chiếu.</p>
+                <a href="/" class="btn btn-outline-success rounded-pill px-4 py-2 fw-bold shadow-sm">
+                    <i class="bi bi-house-door"></i> Quay về trang chủ
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>

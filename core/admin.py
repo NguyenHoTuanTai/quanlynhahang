@@ -2,7 +2,8 @@ from django.contrib import admin
 from django import forms
 from django.core.exceptions import ValidationError
 from datetime import date
-from .models import Ban, ChiTietDonHang, DanhGia, DonHang, LoaiMon, MonAn, NhanVien, ThanhToan, DatBan
+from django.db.models import Sum # <-- Thêm cái này để tính tổng tiền
+from .models import Ban, ChiTietDonHang, DanhGia, DonHang, LoaiMon, MonAn, NhanVien, ThanhToan, DatBan, HangThanhVien, Profile, Voucher
 
 
 class NhanVienAdminForm(forms.ModelForm):
@@ -173,9 +174,56 @@ class ChiTietDonHangAdmin(admin.ModelAdmin):
 class DonHangAdmin(admin.ModelAdmin):
     form = DonHangAdminForm
 
+
+# --- ĐÃ NÂNG CẤP BẢNG THANH TOÁN (CÓ THỐNG KÊ DOANH THU) ---
 @admin.register(ThanhToan)
 class ThanhToanAdmin(admin.ModelAdmin):
-    form = ThanhToanAdminForm
+    form = ThanhToanAdminForm # Vẫn giữ form cũ của bồ
+
+    # Cột hiển thị ra ngoài danh sách
+    list_display = ('id', 'get_don_id', 'phuong_thuc', 'get_tong_tien', 'trang_thai_thanh_toan', 'thoi_gian_thanh_toan')
+    
+    # Bộ lọc để thống kê theo ngày/phương thức
+    list_filter = ('phuong_thuc', 'thoi_gian_thanh_toan', 'trang_thai_thanh_toan')
+
+    change_list_template = "admin/thanh_toan_summary.html"
+    
+    # Tìm kiếm theo ID đơn hàng
+    search_fields = ('don_hang__id',)
+
+    def get_don_id(self, obj):
+        return f"Đơn #{obj.don_hang.id}" if obj.don_hang else "Không có"
+    get_don_id.short_description = 'Mã đơn'
+
+    def get_tong_tien(self, obj):
+        tien = obj.don_hang.tong_tien if obj.don_hang and obj.don_hang.tong_tien else 0
+        return f"{tien:,.0f} VNĐ"
+    get_tong_tien.short_description = 'Thành tiền'
+
+    # Hàm ngầm tính tổng doanh thu và gửi ra giao diện
+    def changelist_view(self, request, extra_context=None):
+        response = super().changelist_view(request, extra_context=extra_context)
+        
+        try:
+            qs = response.context_data['cl'].queryset
+        except (AttributeError, KeyError):
+            return response
+
+        # Tính tổng bình thường
+        doanh_thu = qs.aggregate(total=Sum('don_hang__tong_tien'))['total'] or 0
+        tien_mat = qs.filter(phuong_thuc='TienMat').aggregate(total=Sum('don_hang__tong_tien'))['total'] or 0
+        chuyen_khoan = qs.exclude(phuong_thuc='TienMat').aggregate(total=Sum('don_hang__tong_tien'))['total'] or 0
+
+        # DÙNG PYTHON ĐỂ THÊM DẤU PHẨY LUÔN (f"{giá_trị:,}")
+        metrics = {
+            'tong_doanh_thu': f"{int(doanh_thu):,}",
+            'tong_tien_mat': f"{int(tien_mat):,}",
+            'tong_chuyen_khoan': f"{int(chuyen_khoan):,}",
+        }
+        
+        response.context_data.update(metrics)
+        return response
+
 
 @admin.register(DanhGia)
 class DanhGiaAdmin(admin.ModelAdmin):
@@ -203,3 +251,13 @@ class DatBanAdmin(admin.ModelAdmin):
 
 # Loại món không cần form kiểm tra phức tạp nên chỉ cần đăng ký đơn giản như vầy
 admin.site.register(LoaiMon)
+
+admin.site.register(HangThanhVien)
+admin.site.register(Profile)
+
+@admin.register(Voucher)
+class VoucherAdmin(admin.ModelAdmin):
+    list_display = ('ma_code', 'loai_giam', 'gia_tri', 'so_luong_da_dung', 'so_luong_gioi_han', 'kich_hoat')
+    list_filter = ('kich_hoat', 'loai_giam')
+    search_fields = ('ma_code',)
+    readonly_fields = ('so_luong_da_dung',) # Không cho admin sửa tay số lượng đã dùng, hệ thống tự cộng

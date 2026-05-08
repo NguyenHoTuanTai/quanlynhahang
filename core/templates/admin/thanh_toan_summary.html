@@ -1,0 +1,24 @@
+{% extends "admin/change_list.html" %}
+
+{% block result_list %}
+<div style="background-color: #ffffff; padding: 20px; margin-bottom: 20px; border-left: 6px solid #417690; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-around; font-size: 18px; border-radius: 4px;">
+    
+    <div style="text-align: center;">
+        <div style="color: #666; font-size: 14px; text-transform: uppercase; margin-bottom: 5px;">💰 Tổng doanh thu</div>
+        <strong style="color: #ba2121; font-size: 24px;">{{ tong_doanh_thu }} VNĐ</strong>
+    </div>
+
+    <div style="text-align: center; border-left: 1px solid #eee; padding-left: 40px;">
+        <div style="color: #666; font-size: 14px; text-transform: uppercase; margin-bottom: 5px;">💵 Tiền mặt</div>
+        <strong style="color: #27ae60; font-size: 24px;">{{ tong_tien_mat }} VNĐ</strong>
+    </div>
+
+    <div style="text-align: center; border-left: 1px solid #eee; padding-left: 40px;">
+        <div style="color: #666; font-size: 14px; text-transform: uppercase; margin-bottom: 5px;">📱 Chuyển khoản (QR)</div>
+        <strong style="color: #2980b9; font-size: 24px;">{{ tong_chuyen_khoan }} VNĐ</strong>
+    </div>
+
+</div>
+
+{{ block.super }}
+{% endblock %}

@@ -254,18 +254,18 @@ input, textarea {
     
     function selectDeposit(amount, el){
         if(el.classList.contains("disabled")) return;
-    
+
         document.getElementById("input_tien_coc").value = amount;
-    
+
         for(let c of cards) c.classList.remove("active");
         el.classList.add("active");
-    
+
         let btn = document.getElementById('btn_submit');
-        if (amount > 0) {
-            btn.innerHTML = `Thanh toán cọc: ${amount.toLocaleString('vi-VN')}đ`;
-        } else {
-            btn.innerHTML = `Gửi Yêu Cầu Đặt Bàn`;
-        }
+
+        // lấy tên loại bàn
+        let loaiBan = el.childNodes[0].textContent.trim();
+
+        btn.innerHTML = `Đặt bàn ${loaiBan}`;
     }
     
     // CHECK SỐ NGƯỜI

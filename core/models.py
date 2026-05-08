@@ -171,6 +171,10 @@ class DonHang(models.Model):
     tong_tien = models.DecimalField(max_digits=18, decimal_places=0, blank=True, null=True)
     thoi_gian_tao = models.DateTimeField(blank=True, null=True)
     khach_hang = models.ForeignKey('Profile', on_delete=models.SET_NULL, null=True, blank=True)
+    
+    # --- 2 TRƯỜNG MỚI THÊM VÀO ĐỂ QUẢN LÝ VOUCHER ---
+    voucher = models.ForeignKey('Voucher', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Voucher áp dụng")
+    tien_giam_gia = models.DecimalField(max_digits=18, decimal_places=0, default=0, blank=True, null=True, verbose_name="Tiền được giảm")
 
     class Meta:
         managed = True
@@ -180,6 +184,14 @@ class DonHang(models.Model):
 
     def __str__(self):
         return f"Đơn hàng #{self.id}"
+    
+    @property
+    def tong_thanh_toan(self):
+        # Tính số tiền khách thực tế phải trả sau khi trừ voucher
+        tien_goc = self.tong_tien if self.tong_tien else 0
+        tien_giam = self.tien_giam_gia if self.tien_giam_gia else 0
+        thanh_toan = tien_goc - tien_giam
+        return thanh_toan if thanh_toan > 0 else 0
 
 
 # Chi tiết bên trong 1 đơn hàng (Khách gọi món gì, số lượng bao nhiêu)
@@ -294,6 +306,57 @@ class Profile(models.Model):
     diem_tich_luy = models.IntegerField(default=0)
     hang_thanh_vien = models.ForeignKey(HangThanhVien, models.DO_NOTHING, blank=True, null=True)
     
-    
+    def save(self, *args, **kwargs):
+        # TỰ ĐỘNG XÉT THĂNG HẠNG DỰA TRÊN ĐIỂM TÍCH LŨY
+        # Lấy hạng có điểm tối thiểu nhỏ hơn hoặc bằng điểm hiện tại của khách, 
+        # ưu tiên lấy hạng cao nhất (sắp xếp giảm dần)
+        hang_xung_dang = HangThanhVien.objects.filter(
+            diem_toi_thieu__lte=self.diem_tich_luy
+        ).order_by('-diem_toi_thieu').first()
+
+        # Nếu tìm thấy hạng và nó khác hạng hiện tại thì mới cập nhật
+        if hang_xung_dang and self.hang_thanh_vien != hang_xung_dang:
+            self.hang_thanh_vien = hang_xung_dang
+
+        super().save(*args, **kwargs)
+        
     def __str__(self):
         return self.user.username
+    
+# Quản lý mã giảm giá (Voucher)
+class Voucher(models.Model):
+    LOAI_GIAM_GIA = [
+        ('TienMat', 'Giảm thẳng tiền (VNĐ)'),
+        ('PhanTram', 'Giảm theo phần trăm (%)'),
+    ]
+
+    ma_code = models.CharField(max_length=50, unique=True, verbose_name="Mã giảm giá")
+    loai_giam = models.CharField(max_length=20, choices=LOAI_GIAM_GIA, default='TienMat', verbose_name="Loại giảm")
+    gia_tri = models.DecimalField(max_digits=18, decimal_places=0, verbose_name="Giá trị giảm (VNĐ hoặc %)")
+    
+    so_luong_gioi_han = models.IntegerField(verbose_name="Số lượng tối đa", help_text="Nhập số lần mã này có thể được sử dụng")
+    so_luong_da_dung = models.IntegerField(default=0, verbose_name="Số lượng đã dùng")
+    
+    ngay_het_han = models.DateTimeField(blank=True, null=True, verbose_name="Ngày hết hạn")
+    kich_hoat = models.BooleanField(default=True, verbose_name="Đang hoạt động")
+
+    class Meta:
+        managed = True
+        db_table = 'voucher'
+        verbose_name = 'Mã giảm giá'
+        verbose_name_plural = 'Quản lý Mã giảm giá'
+
+    def __str__(self):
+        return f"{self.ma_code} - Giảm {self.gia_tri} ({self.loai_giam})"
+
+    # Hàm kiểm tra mã còn dùng được không
+    def hop_le(self):
+        from django.utils import timezone
+        
+        if not self.kich_hoat:
+            return False, "Mã giảm giá đã bị khóa."
+        if self.ngay_het_han and self.ngay_het_han < timezone.now():
+            return False, "Mã giảm giá đã hết hạn sử dụng."
+        if self.so_luong_da_dung >= self.so_luong_gioi_han:
+            return False, "Mã giảm giá đã hết lượt sử dụng."
+        return True, "Hợp lệ"
