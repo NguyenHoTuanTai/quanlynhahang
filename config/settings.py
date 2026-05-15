@@ -13,6 +13,9 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 from pathlib import Path
 import os
 import dj_database_url
+import cloudinary
+import cloudinary.uploader
+import cloudinary.api
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +28,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-vf=tcmh)-6l-i=hoy)9((_pq%_&45z%9#oy6th)fe2szg(o7+o'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
@@ -39,9 +42,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'core',
     'django.contrib.humanize',
+    'core',
+
+    'cloudinary',
+    'cloudinary_storage',
 ]
+
+CLOUDINARY_STORAGE = {
+    'CLOUD_NAME': 'deyfg625b',
+    'API_KEY': '149963589625251',
+    'API_SECRET': 'UFIZBQgRftuTkTuch3Y316RqfRk',
+}
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -116,10 +129,9 @@ USE_I18N = True
 USE_TZ = True
 
 
-
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
-DEBUG = True
+
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
@@ -131,3 +143,12 @@ STATICFILES_DIRS = [
 LOGIN_REDIRECT_URL = '/redirect/'
 LOGOUT_REDIRECT_URL = '/'
 
+
+MEDIA_URL = '/media/'
+
+cloudinary.config(
+    cloud_name='deyfg625b',
+    api_key='149963589625251',
+    api_secret='UFIZBQgRftuTkTuch3Y316RqfRk',
+    secure=True
+)

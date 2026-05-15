@@ -1,8 +1,12 @@
 ﻿from django.db import models
 from django.contrib.auth.models import User
-
-# (Thường được sinh ra tự động để quản lý User, Phân quyền, Session, v.v.)
-
+from django.core.exceptions import ValidationError
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.utils import timezone
+from cloudinary.models import CloudinaryField
+# -------------------------------------------------------------
+# CÁC BẢNG HỆ THỐNG MẶC ĐỊNH (Không cần thay đổi)
+# -------------------------------------------------------------
 class AuthGroup(models.Model):
     name = models.CharField(unique=True, max_length=150)
     class Meta:
@@ -98,12 +102,19 @@ class DjangoSession(models.Model):
         db_table = 'django_session'
 
 
-# (managed = False: Các bảng này đã được tạo cứng bằng SQL từ trước)
-# Quản lý danh sách các bàn trong quán (Số bàn, số ghế, trống/đã đặt)
+# -------------------------------------------------------------
+# CÁC BẢNG NGHIỆP VỤ (Đã thêm ràng buộc chặt chẽ)
+# -------------------------------------------------------------
+
 class Ban(models.Model):
-    so_ban = models.CharField(unique=True, max_length=20)
-    so_ghe = models.IntegerField()
-    trang_thai = models.CharField(max_length=50, blank=True, null=True)
+    TRANG_THAI_CHOICES = [
+        ('Trong', 'Trống'),
+        ('DaDat', 'Đã đặt'),
+        ('DangSuDung', 'Đang sử dụng'),
+    ]
+    so_ban = models.CharField(unique=True, max_length=20, verbose_name="Số bàn")
+    so_ghe = models.IntegerField(validators=[MinValueValidator(1)], verbose_name="Số ghế") # Số ghế phải >= 1
+    trang_thai = models.CharField(max_length=50, choices=TRANG_THAI_CHOICES, default='Trong', verbose_name="Trạng thái")
 
     class Meta:
         managed = False
@@ -114,10 +125,10 @@ class Ban(models.Model):
     def __str__(self):
         return f"Bàn {self.so_ban}"
 
-# Danh mục phân loại món ăn (Ví dụ: Đồ nướng, Đồ lẩu, Nước uống...)
+
 class LoaiMon(models.Model):
-    ten_loai = models.CharField(max_length=100)
-    mo_ta = models.TextField(blank=True, null=True)
+    ten_loai = models.CharField(max_length=100, unique=True, verbose_name="Tên loại")
+    mo_ta = models.TextField(blank=True, null=True, verbose_name="Mô tả")
 
     class Meta:
         managed = False
@@ -128,14 +139,21 @@ class LoaiMon(models.Model):
     def __str__(self):
         return f"Loại: {self.ten_loai}"
 
-# Quản lý chi tiết từng món ăn (Tên, giá, hình ảnh...)
+
 class MonAn(models.Model):
-    loai_mon = models.ForeignKey(LoaiMon, models.DO_NOTHING)
-    ten_mon = models.CharField(max_length=200)
-    mo_ta = models.TextField(blank=True, null=True)
-    gia_ban = models.DecimalField(max_digits=18, decimal_places=0)
-    hinh_anh = models.CharField(max_length=255, blank=True, null=True)
-    trang_thai_ban = models.BooleanField(blank=True, null=True)
+    loai_mon = models.ForeignKey(LoaiMon, models.DO_NOTHING, verbose_name="Loại món")
+    ten_mon = models.CharField(max_length=200, verbose_name="Tên món")
+    mo_ta = models.TextField(blank=True, null=True, verbose_name="Mô tả")
+    gia_ban = models.DecimalField(max_digits=18, decimal_places=0, validators=[MinValueValidator(0)], verbose_name="Giá bán") # Giá không được âm
+    
+
+    hinh_anh = CloudinaryField(
+        'image',
+        folder='mon_an',
+        blank=True,
+        null=True
+    )
+    trang_thai_ban = models.BooleanField(default=True, verbose_name="Đang mở bán")
 
     class Meta:
         managed = False
@@ -146,11 +164,15 @@ class MonAn(models.Model):
     def __str__(self):
         return self.ten_mon
 
-# Hạng thành viên
+
 class HangThanhVien(models.Model):
-    ten_hang = models.CharField(max_length=50)
-    phan_tram_giam_gia = models.IntegerField(blank=True, null=True, default=0)
-    diem_toi_thieu = models.IntegerField(blank=True, null=True, default=0)
+    ten_hang = models.CharField(max_length=50, unique=True, verbose_name="Tên hạng")
+    phan_tram_giam_gia = models.IntegerField(
+        default=0, 
+        validators=[MinValueValidator(0), MaxValueValidator(100)], # Chỉ từ 0 -> 100%
+        verbose_name="% Giảm giá"
+    )
+    diem_toi_thieu = models.IntegerField(default=0, validators=[MinValueValidator(0)], verbose_name="Điểm tối thiểu")
 
     class Meta:
         managed = True
@@ -162,19 +184,22 @@ class HangThanhVien(models.Model):
         return self.ten_hang
 
 
-
-# Lưu trữ đơn hàng tổng của một bàn (Gồm tổng tiền, trạng thái...)
 class DonHang(models.Model):
-    ban = models.ForeignKey(Ban, models.DO_NOTHING, blank=True, null=True)
-    nhan_vien = models.ForeignKey('NhanVien', models.DO_NOTHING, blank=True, null=True)
-    trang_thai_don = models.CharField(max_length=50, blank=True, null=True)
-    tong_tien = models.DecimalField(max_digits=18, decimal_places=0, blank=True, null=True)
-    thoi_gian_tao = models.DateTimeField(blank=True, null=True)
-    khach_hang = models.ForeignKey('Profile', on_delete=models.SET_NULL, null=True, blank=True)
+    TRANG_THAI_CHOICES = [
+        ('ChoXacNhan', 'Chờ xác nhận'),
+        ('DangChuanBi', 'Đang chuẩn bị'),
+        ('HoanThanh', 'Hoàn thành'),
+        ('DaHuy', 'Đã hủy'),
+    ]
+    ban = models.ForeignKey(Ban, models.DO_NOTHING, blank=True, null=True, verbose_name="Bàn")
+    nhan_vien = models.ForeignKey('NhanVien', models.DO_NOTHING, blank=True, null=True, verbose_name="Nhân viên tạo")
+    khach_hang = models.ForeignKey('Profile', on_delete=models.SET_NULL, null=True, blank=True, verbose_name="Khách hàng")
+    trang_thai_don = models.CharField(max_length=50, choices=TRANG_THAI_CHOICES, default='ChoXacNhan', verbose_name="Trạng thái đơn")
+    tong_tien = models.DecimalField(max_digits=18, decimal_places=0, default=0, validators=[MinValueValidator(0)], verbose_name="Tổng tiền gốc")
+    thoi_gian_tao = models.DateTimeField(auto_now_add=True, verbose_name="Thời gian tạo")
     
-    # --- 2 TRƯỜNG MỚI THÊM VÀO ĐỂ QUẢN LÝ VOUCHER ---
     voucher = models.ForeignKey('Voucher', on_delete=models.SET_NULL, blank=True, null=True, verbose_name="Voucher áp dụng")
-    tien_giam_gia = models.DecimalField(max_digits=18, decimal_places=0, default=0, blank=True, null=True, verbose_name="Tiền được giảm")
+    tien_giam_gia = models.DecimalField(max_digits=18, decimal_places=0, default=0, validators=[MinValueValidator(0)], verbose_name="Tiền được giảm")
 
     class Meta:
         managed = True
@@ -184,23 +209,27 @@ class DonHang(models.Model):
 
     def __str__(self):
         return f"Đơn hàng #{self.id}"
-    
+
+    def clean(self):
+        # Ràng buộc: Tiền giảm giá không được lớn hơn tổng tiền gốc
+        if self.tong_tien and self.tien_giam_gia:
+            if self.tien_giam_gia > self.tong_tien:
+                raise ValidationError({'tien_giam_gia': 'Tiền giảm giá không được lớn hơn tổng tiền của đơn hàng.'})
+
     @property
     def tong_thanh_toan(self):
-        # Tính số tiền khách thực tế phải trả sau khi trừ voucher
         tien_goc = self.tong_tien if self.tong_tien else 0
         tien_giam = self.tien_giam_gia if self.tien_giam_gia else 0
         thanh_toan = tien_goc - tien_giam
         return thanh_toan if thanh_toan > 0 else 0
 
 
-# Chi tiết bên trong 1 đơn hàng (Khách gọi món gì, số lượng bao nhiêu)
 class ChiTietDonHang(models.Model):
-    don_hang = models.ForeignKey('DonHang', models.DO_NOTHING)
-    mon_an = models.ForeignKey('MonAn', models.DO_NOTHING)
-    so_luong = models.IntegerField()
-    gia_luc_ban = models.DecimalField(max_digits=18, decimal_places=0)
-    ghi_chu = models.CharField(max_length=255, blank=True, null=True)
+    don_hang = models.ForeignKey(DonHang, models.DO_NOTHING, verbose_name="Đơn hàng")
+    mon_an = models.ForeignKey(MonAn, models.DO_NOTHING, verbose_name="Món ăn")
+    so_luong = models.IntegerField(validators=[MinValueValidator(1)], verbose_name="Số lượng") # Số lượng >= 1
+    gia_luc_ban = models.DecimalField(max_digits=18, decimal_places=0, validators=[MinValueValidator(0)], verbose_name="Giá lúc bán")
+    ghi_chu = models.CharField(max_length=255, blank=True, null=True, verbose_name="Ghi chú thêm")
 
     class Meta:
         managed = False
@@ -209,20 +238,22 @@ class ChiTietDonHang(models.Model):
         verbose_name_plural = 'Quản lý Chi tiết đơn hàng'
 
     def __str__(self):
-        return f"Chi tiết đơn #{self.don_hang_id} - {self.mon_an.ten_mon}"
-    
+        return f"Chi tiết #{self.id} - Đơn {self.don_hang_id}"
+
     @property
     def thanh_tien(self):
-        # Tự động tính thành tiền bằng số lượng nhân đơn giá
         return self.so_luong * self.gia_luc_ban
 
-# Feedback, đánh giá của khách hàng về món ăn
+
 class DanhGia(models.Model):
-    mon_an = models.ForeignKey('MonAn', models.DO_NOTHING)
-    ten_khach_hang = models.CharField(max_length=100, blank=True, null=True)
-    diem_danh_gia = models.IntegerField(blank=True, null=True)
-    noi_dung = models.TextField(blank=True, null=True)
-    thoi_gian_tao = models.DateTimeField(auto_now_add=True)
+    mon_an = models.ForeignKey(MonAn, models.DO_NOTHING, verbose_name="Món ăn")
+    ten_khach_hang = models.CharField(max_length=100, blank=True, null=True, verbose_name="Tên khách")
+    diem_danh_gia = models.IntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)], # Điểm chỉ từ 1 đến 5 sao
+        verbose_name="Điểm (1-5)"
+    )
+    noi_dung = models.TextField(blank=True, null=True, verbose_name="Nội dung")
+    thoi_gian_tao = models.DateTimeField(auto_now_add=True, verbose_name="Thời gian")
 
     class Meta:
         managed = False
@@ -231,15 +262,15 @@ class DanhGia(models.Model):
         verbose_name_plural = 'Quản lý Đánh giá'
 
     def __str__(self):
-        return f"Đánh giá của {self.ten_khach_hang} - {self.diem_danh_gia} Sao"
+        return f"Đánh giá {self.diem_danh_gia} Sao - Món {self.mon_an.ten_mon}"
 
-# Thông tin nhân viên phục vụ/quản lý
+
 class NhanVien(models.Model):
-    ho_ten = models.CharField(max_length=150)
-    vi_tri = models.CharField(max_length=50, blank=True, null=True)
-    so_dien_thoai = models.CharField(max_length=20, blank=True, null=True)
-    email = models.CharField(max_length=100, blank=True, null=True)
-    ngay_vao_lam = models.DateField(blank=True, null=True)
+    ho_ten = models.CharField(max_length=150, verbose_name="Họ và tên")
+    vi_tri = models.CharField(max_length=50, blank=True, null=True, verbose_name="Vị trí/Chức vụ")
+    so_dien_thoai = models.CharField(max_length=20, blank=True, null=True, verbose_name="Số điện thoại")
+    email = models.EmailField(max_length=100, blank=True, null=True, verbose_name="Email") # Dùng EmailField để chuẩn format
+    ngay_vao_lam = models.DateField(blank=True, null=True, verbose_name="Ngày vào làm")
 
     class Meta:
         managed = False
@@ -248,14 +279,24 @@ class NhanVien(models.Model):
         verbose_name_plural = 'Quản lý Nhân viên'
 
     def __str__(self):
-        return f"Nhân viên {self.ho_ten}"
+        return f"NV: {self.ho_ten}"
 
-# Hóa đơn thanh toán cho các đơn hàng
+
 class ThanhToan(models.Model):
-    don_hang = models.OneToOneField(DonHang, models.DO_NOTHING)
-    phuong_thuc = models.CharField(max_length=50, blank=True, null=True)
-    trang_thai_thanh_toan = models.CharField(max_length=50, blank=True, null=True)
-    thoi_gian_thanh_toan = models.DateTimeField(blank=True, null=True)
+    PHUONG_THUC_CHOICES = [
+        ('TienMat', 'Tiền mặt'),
+        ('ChuyenKhoan', 'Chuyển khoản'),
+        ('The', 'Thẻ ngân hàng'),
+    ]
+    TRANG_THAI_TT_CHOICES = [
+        ('ChuaThanhToan', 'Chưa thanh toán'),
+        ('DaThanhToan', 'Đã thanh toán'),
+        ('HoanTien', 'Đã hoàn tiền'),
+    ]
+    don_hang = models.OneToOneField(DonHang, models.DO_NOTHING, verbose_name="Đơn hàng")
+    phuong_thuc = models.CharField(max_length=50, choices=PHUONG_THUC_CHOICES, default='TienMat', verbose_name="Phương thức")
+    trang_thai_thanh_toan = models.CharField(max_length=50, choices=TRANG_THAI_TT_CHOICES, default='ChuaThanhToan', verbose_name="Trạng thái")
+    thoi_gian_thanh_toan = models.DateTimeField(auto_now_add=True, verbose_name="Thời gian TT")
 
     class Meta:
         managed = False
@@ -264,66 +305,70 @@ class ThanhToan(models.Model):
         verbose_name_plural = 'Quản lý Thanh toán'
 
     def __str__(self):
-        return f"Thanh toán Đơn #{self.don_hang_id} - {self.phuong_thuc}"
+        return f"Thanh toán Đơn #{self.don_hang_id} - {self.get_phuong_thuc_display()}"
 
 
-# (managed = True: Django sẽ tự động sinh/quản lý bảng này khi migrate)
-# Bảng lưu thông tin khách hàng đặt bàn trước
 class DatBan(models.Model):
-    ban = models.ForeignKey(
-        'Ban',
-        on_delete=models.SET_NULL,
-        db_column='ban_id',
-        blank=True,
-        null=True,
-        verbose_name="Bàn được xếp"
-    )
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Tài khoản khách đặt")
+    TRANG_THAI_DAT_CHOICES = [
+        ('ChoXacNhan', 'Chờ xác nhận'),
+        ('DaXacNhan', 'Đã xác nhận'),
+        ('HoanThanh', 'Khách đã đến (Hoàn thành)'),
+        ('DaHuy', 'Đã hủy'),
+    ]
+    ban = models.ForeignKey('Ban', on_delete=models.SET_NULL, db_column='ban_id', blank=True, null=True, verbose_name="Bàn được xếp")
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, verbose_name="Tài khoản khách")
     ten_khach_hang = models.CharField(max_length=150, verbose_name="Tên khách hàng")
     so_dien_thoai = models.CharField(max_length=20, verbose_name="Số điện thoại")
     ngay_dat = models.DateField(verbose_name="Ngày đặt")
     gio_dat = models.TimeField(verbose_name="Giờ đến")
-    so_nguoi = models.IntegerField(verbose_name="Số người")
+    so_nguoi = models.IntegerField(validators=[MinValueValidator(1)], verbose_name="Số người") # Số người >= 1
     ghi_chu = models.TextField(blank=True, null=True, verbose_name="Ghi chú")
-    tong_tien_coc = models.DecimalField(max_digits=18, decimal_places=0, blank=True, null=True, verbose_name="Tiền cọc")
-    trang_thai = models.CharField(max_length=50, default="ChoXacNhan", verbose_name="Trạng thái")
+    tong_tien_coc = models.DecimalField(max_digits=18, decimal_places=0, default=0, validators=[MinValueValidator(0)], verbose_name="Tiền cọc")
+    trang_thai = models.CharField(max_length=50, choices=TRANG_THAI_DAT_CHOICES, default="ChoXacNhan", verbose_name="Trạng thái")
     thoi_gian_tao = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        managed = True  # Django sẽ quản lý bảng này
+        managed = True
         db_table = 'dat_ban'
         verbose_name = 'Đơn Đặt Bàn'
         verbose_name_plural = 'Quản lý Đặt Bàn'
 
+    def clean(self):
+        # Ràng buộc: Không được đặt bàn trong quá khứ
+        if self.ngay_dat:
+            if self.ngay_dat < timezone.now().date():
+                raise ValidationError({'ngay_dat': 'Không thể đặt bàn vào ngày trong quá khứ.'})
+
     def __str__(self):
         return f"{self.ten_khach_hang} - {self.ngay_dat} {self.gio_dat}"
 
-# Bảng mở rộng thông tin cho User (Thêm SDT, địa chỉ, điểm tích lũy...)
+
 class Profile(models.Model):
-    user = models.OneToOneField(User, on_delete=models.CASCADE)
-    so_dien_thoai = models.CharField(max_length=15, blank=True)
-    dia_chi = models.CharField(max_length=255, blank=True)
-    diem_tich_luy = models.IntegerField(default=0)
-    hang_thanh_vien = models.ForeignKey(HangThanhVien, models.DO_NOTHING, blank=True, null=True)
+    user = models.OneToOneField(User, on_delete=models.CASCADE, verbose_name="Tài khoản")
+    so_dien_thoai = models.CharField(max_length=15, blank=True, verbose_name="Số điện thoại")
+    dia_chi = models.CharField(max_length=255, blank=True, verbose_name="Địa chỉ")
+    diem_tich_luy = models.IntegerField(default=0, validators=[MinValueValidator(0)], verbose_name="Điểm tích lũy")
+    hang_thanh_vien = models.ForeignKey(HangThanhVien, models.DO_NOTHING, blank=True, null=True, verbose_name="Hạng thành viên")
     
     def save(self, *args, **kwargs):
-        # TỰ ĐỘNG XÉT THĂNG HẠNG DỰA TRÊN ĐIỂM TÍCH LŨY
-        # Lấy hạng có điểm tối thiểu nhỏ hơn hoặc bằng điểm hiện tại của khách, 
-        # ưu tiên lấy hạng cao nhất (sắp xếp giảm dần)
+        # Tự động xếp hạng theo điểm
         hang_xung_dang = HangThanhVien.objects.filter(
             diem_toi_thieu__lte=self.diem_tich_luy
         ).order_by('-diem_toi_thieu').first()
 
-        # Nếu tìm thấy hạng và nó khác hạng hiện tại thì mới cập nhật
         if hang_xung_dang and self.hang_thanh_vien != hang_xung_dang:
             self.hang_thanh_vien = hang_xung_dang
 
         super().save(*args, **kwargs)
+
+    class Meta:
+        verbose_name = 'Hồ sơ khách hàng'
+        verbose_name_plural = 'Quản lý Hồ sơ'
         
     def __str__(self):
         return self.user.username
     
-# Quản lý mã giảm giá (Voucher)
+
 class Voucher(models.Model):
     LOAI_GIAM_GIA = [
         ('TienMat', 'Giảm thẳng tiền (VNĐ)'),
@@ -332,10 +377,10 @@ class Voucher(models.Model):
 
     ma_code = models.CharField(max_length=50, unique=True, verbose_name="Mã giảm giá")
     loai_giam = models.CharField(max_length=20, choices=LOAI_GIAM_GIA, default='TienMat', verbose_name="Loại giảm")
-    gia_tri = models.DecimalField(max_digits=18, decimal_places=0, verbose_name="Giá trị giảm (VNĐ hoặc %)")
+    gia_tri = models.DecimalField(max_digits=18, decimal_places=0, validators=[MinValueValidator(0)], verbose_name="Giá trị giảm (VNĐ hoặc %)")
     
-    so_luong_gioi_han = models.IntegerField(verbose_name="Số lượng tối đa", help_text="Nhập số lần mã này có thể được sử dụng")
-    so_luong_da_dung = models.IntegerField(default=0, verbose_name="Số lượng đã dùng")
+    so_luong_gioi_han = models.IntegerField(validators=[MinValueValidator(1)], verbose_name="Số lượng tối đa", help_text="Phải lớn hơn 0")
+    so_luong_da_dung = models.IntegerField(default=0, validators=[MinValueValidator(0)], verbose_name="Số lượng đã dùng")
     
     ngay_het_han = models.DateTimeField(blank=True, null=True, verbose_name="Ngày hết hạn")
     kich_hoat = models.BooleanField(default=True, verbose_name="Đang hoạt động")
@@ -346,13 +391,15 @@ class Voucher(models.Model):
         verbose_name = 'Mã giảm giá'
         verbose_name_plural = 'Quản lý Mã giảm giá'
 
-    def __str__(self):
-        return f"{self.ma_code} - Giảm {self.gia_tri} ({self.loai_giam})"
-
-    # Hàm kiểm tra mã còn dùng được không
-    def hop_le(self):
-        from django.utils import timezone
+    def clean(self):
+        # Ràng buộc logic thông minh cho Voucher
+        if self.loai_giam == 'PhanTram' and self.gia_tri > 100:
+            raise ValidationError({'gia_tri': 'Giá trị giảm theo phần trăm không được vượt quá 100%.'})
         
+        if self.so_luong_da_dung > self.so_luong_gioi_han:
+            raise ValidationError({'so_luong_da_dung': 'Số lượng đã dùng không thể lớn hơn số lượng giới hạn.'})
+
+    def hop_le(self):
         if not self.kich_hoat:
             return False, "Mã giảm giá đã bị khóa."
         if self.ngay_het_han and self.ngay_het_han < timezone.now():
@@ -360,3 +407,6 @@ class Voucher(models.Model):
         if self.so_luong_da_dung >= self.so_luong_gioi_han:
             return False, "Mã giảm giá đã hết lượt sử dụng."
         return True, "Hợp lệ"
+        
+    def __str__(self):
+        return f"{self.ma_code} - Giảm {self.gia_tri} ({self.get_loai_giam_display()})"

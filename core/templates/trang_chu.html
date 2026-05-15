@@ -99,6 +99,24 @@
             }
             .nav::-webkit-scrollbar { display: none; }
         }
+        .pagination .page-link{
+            color: #e65c00;
+            border: none;
+            margin: 0 3px;
+            border-radius: 8px;
+        }
+        
+        .pagination .page-link:hover{
+            background: #e65c00;
+            color: white;
+        }
+        
+        .pagination .page-item.active .page-link{
+            background: #e65c00;
+            border-color: #e65c00;
+            color: white;
+        }
+        
     </style>
 </head>
 <body>
@@ -150,7 +168,7 @@
                             <div class="card shadow-sm border-0 h-100">
                                 
                                 <a href="{% url 'chi_tiet_mon' mon.id %}">
-                                    <img src="/static/image/{{ mon.hinh_anh }}" class="card-img-top" alt="{{ mon.ten_mon }}">
+                                    <img src="{{ mon.hinh_anh.url }}" class="card-img-top" alt="{{ mon.ten_mon }}">
                                 </a>
                                 
                                 <div class="card-body d-flex flex-column">

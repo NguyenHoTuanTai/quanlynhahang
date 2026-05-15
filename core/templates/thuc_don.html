@@ -60,6 +60,28 @@ body { background: #f8f8f8; }
         height: 120px; /* Làm ảnh lùn xuống một chút cho vừa màn hình điện thoại */
     }
 }
+.page-link { color: #333; }
+.page-item.active .page-link { background-color: #e65c00; border-color: #e65c00; color: white; }\
+.text-orange { color: #e65c00; font-weight: bold; }
+.page-link { color: #333; }
+.page-item.active .page-link { background-color: #e65c00; border-color: #e65c00; color: white; }
+.pagination .page-link{
+    color: #e65c00;
+    border: none;
+    margin: 0 3px;
+    border-radius: 8px;
+}
+
+.pagination .page-link:hover{
+    background: #e65c00;
+    color: white;
+}
+
+.pagination .page-item.active .page-link{
+    background: #e65c00;
+    border-color: #e65c00;
+    color: white;
+}
 </style>
 
 </head>
@@ -165,7 +187,7 @@ body { background: #f8f8f8; }
         <div class="col-6 col-md-6 col-lg-4">
             <div class="card shadow-sm h-100">
 
-                <img src="/static/image/{{ mon.hinh_anh }}" class="card-img-top">
+                <img src="{{ mon.hinh_anh.url }}" class="card-img-top" alt="{{ mon.ten_mon }}">
 
                 <div class="card-body d-flex flex-column">
 
@@ -196,7 +218,45 @@ body { background: #f8f8f8; }
         </div>
         {% endfor %}
 
-    </div>
+</div>
+
+<!-- PHÂN TRANG -->
+
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+
+        {% if danh_sach_mon.has_previous %}
+        <li class="page-item">
+            <a class="page-link text-orange"
+               href="?page={{ danh_sach_mon.previous_page_number }}{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}{% if request.GET.gia %}&gia={{ request.GET.gia }}{% endif %}{% if ban_id %}&ban_id={{ ban_id }}{% endif %}">
+               « Trước
+            </a>
+        </li>
+        {% endif %}
+
+        {% for num in danh_sach_mon.paginator.page_range %}
+
+        <li class="page-item {% if danh_sach_mon.number == num %}active{% endif %}">
+            <a class="page-link"
+               href="?page={{ num }}{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}{% if request.GET.gia %}&gia={{ request.GET.gia }}{% endif %}{% if ban_id %}&ban_id={{ ban_id }}{% endif %}">
+                {{ num }}
+            </a>
+        </li>
+
+        {% endfor %}
+
+        {% if danh_sach_mon.has_next %}
+        <li class="page-item">
+            <a class="page-link"
+               href="?page={{ danh_sach_mon.next_page_number }}{% if request.GET.loai %}&loai={{ request.GET.loai }}{% endif %}{% if request.GET.gia %}&gia={{ request.GET.gia }}{% endif %}{% if ban_id %}&ban_id={{ ban_id }}{% endif %}">
+                Sau »
+            </a>
+        </li>
+        {% endif %}
+
+    </ul>
+</nav>
+
 </div>
 
 {% if ban_id %}

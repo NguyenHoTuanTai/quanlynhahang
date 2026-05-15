@@ -315,13 +315,12 @@ def thuc_don(request):
     danh_sach_loai = LoaiMon.objects.all()
     danh_sach_mon = MonAn.objects.all()
 
-    # ===== GET PARAMS =====
+    #  GET PARAMS 
     ban_id = request.GET.get("ban_id")
     loai_id = request.GET.get("loai")
     gia = request.GET.get("gia")
 
-    # ===== FIX ban_id =====
-    # Ép kiểu ban_id, bỏ qua nếu lỗi (tránh crash khi URL bị sửa bậy)
+    # Ép kiểu ban_id, bỏ qua nếu lỗi
     try:
         ban_id = int(ban_id)
     except (TypeError, ValueError):
@@ -332,7 +331,7 @@ def thuc_don(request):
         return redirect("thuc_don")
     ban = Ban.objects.filter(id=ban_id).first() if ban_id else None
 
-    # ===== FILTER =====
+    #  FILTER
     # Lọc danh sách món ăn theo Loại và Khoảng giá
     if loai_id:
         danh_sach_mon = danh_sach_mon.filter(loai_mon_id=loai_id)
@@ -344,7 +343,20 @@ def thuc_don(request):
     elif gia == "tren200":
         danh_sach_mon = danh_sach_mon.filter(gia_ban__gt=200000)
 
-    # ===== HANDLE POST =====
+    #PHÂN TRANG 
+
+    user_agent = request.META.get('HTTP_USER_AGENT', '').lower()
+
+    if 'mobile' in user_agent:
+        paginator = Paginator(danh_sach_mon, 4)
+    else:
+        paginator = Paginator(danh_sach_mon, 6)
+
+    page_number = request.GET.get('page')
+
+    danh_sach_mon = paginator.get_page(page_number)
+
+    #  HANDLE POST 
     # Xử lý khi nhân viên thao tác Thêm món hoặc Cập nhật giỏ hàng
     if request.method == "POST":
         action = request.POST.get("action")
@@ -363,7 +375,7 @@ def thuc_don(request):
             trang_thai_don="DangPhucVu"
         )
 
-        # ===== ADD MÓN =====
+        #  ADD MÓN 
         if action == "add":
             mon_id = request.POST.get("mon_id")
             mon = MonAn.objects.get(id=mon_id)
@@ -413,7 +425,7 @@ def thuc_don(request):
                 
                 return redirect("chi_tiet_ban", ban_id=post_ban_id)
 
-        # ===== REDIRECT SAU ADD =====
+        #  REDIRECT SAU ADD 
         # Giữ nguyên các tham số filter trên URL sau khi reload trang
         params = []
         if post_ban_id:
@@ -427,7 +439,7 @@ def thuc_don(request):
 
         return redirect(f"/thuc-don/?{query}")
 
-    # ===== CART =====
+    #  CART 
     # Tính tổng tiền và danh sách món của bàn hiện tại để hiển thị giỏ hàng
     chi_tiet_list = []
     tong_tien = 0
@@ -1074,12 +1086,9 @@ def qr_thanh_toan_nhanh(request, don_hang_id):
 def kiem_tra_trang_thai_don(request, don_hang_id):
     don_hang = get_object_or_404(DonHang, id=don_hang_id)
     return JsonResponse({'trang_thai': don_hang.trang_thai_don})
-
+@staff_member_required
 def thong_ke(request):
-    
-    # =====================
     # FILTER DATE
-    # =====================
     start_date = request.GET.get("start_date")
     end_date = request.GET.get("end_date")
 
@@ -1097,34 +1106,24 @@ def thong_ke(request):
             thoi_gian_thanh_toan__date__lte=end_date
         )
 
-    # =====================
     # DON HANG THEO THANH TOAN FILTER
-    # =====================
     don_hang_base = DonHang.objects.filter(
         thanhtoan__in=thanh_toan_base
     ).distinct()
 
-    # =====================
     # TỔNG ĐƠN
-    # =====================
     tong_don = don_hang_base.count()
 
-    # =====================
     # ĐÃ THANH TOÁN
-    # =====================
     don_da_tt = don_hang_base.filter(trang_thai_don="DaThanhToan")
     da_thanh_toan = don_da_tt.count()
 
-    # =====================
     # DOANH THU
-    # =====================
     tong_doanh_thu = don_da_tt.aggregate(
         tong=Sum("tong_tien")
     )["tong"] or 0
 
-    # =====================
     # DOANH THU HÔM NAY
-    # =====================
     hom_nay = timezone.now().date()
 
     doanh_thu_hom_nay = DonHang.objects.filter(
@@ -1134,9 +1133,7 @@ def thong_ke(request):
         tong=Sum("tong_tien")
     )["tong"] or 0
 
-    # =====================
     # TIỀN MẶT / CHUYỂN KHOẢN
-    # =====================
     tien_mat = thanh_toan_base.filter(
         phuong_thuc="TienMat"
     ).aggregate(
@@ -1149,9 +1146,7 @@ def thong_ke(request):
         tong=Sum("don_hang__tong_tien")
     )["tong"] or 0
 
-    # =====================
     # MÓN BÁN CHẠY
-    # =====================
     mon_ban_chay = ChiTietDonHang.objects.filter(
         don_hang__in=don_hang_base,
         don_hang__trang_thai_don="DaThanhToan"
@@ -1166,9 +1161,7 @@ def thong_ke(request):
         )
     ).order_by("-doanh_thu")[:5]
 
-    # =====================
     # DOANH THU THEO LOẠI
-    # =====================
     doanh_thu_loai = ChiTietDonHang.objects.filter(
         don_hang__in=don_hang_base,
         don_hang__trang_thai_don="DaThanhToan"

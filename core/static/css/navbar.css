@@ -1,0 +1,30 @@
+.nav-link{
+    position: relative;
+    transition: 0.3s;
+    padding: 8px 14px !important;
+    border-radius: 8px;
+}
+
+.nav-link:hover{
+    color: #e65c00 !important;
+    background: rgba(230,92,0,0.08);
+}
+
+.nav-link::after{
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 0;
+    width: 0%;
+    height: 2px;
+    background: #e65c00;
+    transition: 0.3s;
+    transform: translateX(-50%);
+}
+
+.nav-link:hover::after{
+    width: 70%;
+}
+.btn{
+    border-radius:12px;
+}

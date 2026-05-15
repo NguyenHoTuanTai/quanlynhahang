@@ -3,6 +3,10 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
+
+    <!-- MOBILE RESPONSIVE -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Thống kê</title>
 
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
@@ -11,113 +15,172 @@
 
         body{
             background:#f5f5f5;
-            overflow-x: hidden;
+            overflow-x:hidden;
         }
 
         /* ===== SIDEBAR ===== */
 
         .sidebar{
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 280px;
-            height: 100vh;
-            background: white;
-            padding: 25px;
-            box-shadow: 2px 0 15px rgba(0,0,0,0.1);
-            transition: 0.3s;
-            z-index: 1000;
+            position:fixed;
+            top:0;
+            left:0;
+            width:280px;
+            height:100vh;
+            background:white;
+            padding:20px;
+            box-shadow:2px 0 15px rgba(0,0,0,0.1);
+            transition:0.3s;
+            z-index:1000;
+            overflow-y:auto;
         }
 
         .sidebar.closed{
-            left: -280px;
+            left:-280px;
         }
+
+        .sidebar.show{
+            left:0;
+        }
+
+        /* ===== MENU BUTTON ===== */
 
         .toggle-btn{
-            position: fixed;
-            top: 15px;
-            left: 15px;
-            z-index: 2000;
+            position:fixed;
+            top:12px;
+            left:12px;
+            z-index:2000;
 
-            border: none;
-            background: #212529;
-            color: white;
+            border:none;
+            background:#212529;
+            color:white;
 
-            width: 45px;
-            height: 45px;
+            width:42px;
+            height:42px;
 
-            border-radius: 10px;
-            font-size: 22px;
+            border-radius:10px;
+            font-size:20px;
         }
 
-        /* ===== CONTENT ===== */
+        /* ===== MAIN ===== */
 
         .main-content{
-            margin-left: 280px;
-            transition: 0.3s;
+            margin-left:280px;
+            transition:0.3s;
+            padding:15px;
         }
 
         .main-content.full{
-            margin-left: 0;
+            margin-left:0;
         }
 
-        /* ===== BOX ===== */
+        /* ===== CARD ===== */
 
-        .box{
+        .box,
+        .box1{
             border-radius:15px;
-            padding:20px;
+            padding:18px;
             background:white;
             box-shadow:0 2px 10px rgba(0,0,0,0.1);
             text-align:center;
-        }
-
-        .number{
-            font-size:32px;
-            font-weight:bold;
-            color:#e67e22;
         }
 
         .box1{
-            border-radius:15px;
-            padding:20px;
-            background:white;
-            box-shadow:0 2px 10px rgba(0,0,0,0.1);
-            text-align:center;
-            height:500px;
+            min-height:450px;
         }
 
+        .number{
+            font-size:28px;
+            font-weight:bold;
+            color:#e67e22;
+            word-break:break-word;
+        }
+
+        /* ===== CHART ===== */
+
         .chart-container{
-            position: relative;
-            height: 400px;
-            display:flex;
-            justify-content:center;
-            align-items:center;
+            position:relative;
+            width:100%;
+            height:350px;
         }
 
         canvas{
-            max-height: 350px !important;
+            width:100% !important;
+            height:100% !important;
         }
+
+        /* ===== MOBILE ===== */
 
         @media(max-width:768px){
 
             .sidebar{
                 left:-280px;
-            }
-
-            .sidebar.show{
-                left:0;
+                width:250px;
             }
 
             .main-content{
                 margin-left:0;
+                padding:10px;
+            }
+
+            h2{
+                font-size:24px;
+                margin-top:50px;
+            }
+
+            .box,
+            .box1{
+                padding:15px;
+                border-radius:12px;
+            }
+
+            .number{
+                font-size:22px;
+            }
+
+            .chart-container{
+                height:260px;
+            }
+
+            .box1{
+                min-height:350px;
+            }
+
+            .toggle-btn{
+                width:40px;
+                height:40px;
+                font-size:18px;
+            }
+
+        }
+
+        /* ===== SMALL PHONE ===== */
+
+        @media(max-width:480px){
+
+            h2{
+                font-size:20px;
+            }
+
+            .number{
+                font-size:18px;
+            }
+
+            .chart-container{
+                height:220px;
+            }
+
+            .box1{
+                min-height:300px;
             }
 
         }
 
     </style>
 </head>
-{% include 'navbar_admin.html' %}
+
 <body>
+
+{% include 'navbar_admin.html' %}
 
 <!-- NÚT MENU -->
 
@@ -129,9 +192,9 @@
 
 <div class="sidebar" id="sidebar">
 
-    <h4 class="mb-4 mt-5">  Bộ lọc</h4>
+    <h4 class="mb-4 mt-5">Bộ lọc</h4>
 
-    <form method="GET">
+    <form method="GET" id="filterForm">
 
         <div class="mb-3">
             <label>Từ ngày</label>
@@ -154,6 +217,7 @@
         <button class="btn btn-warning w-100">
             Lọc thống kê
         </button>
+
         <a href="{% url 'thong_ke' %}" class="btn btn-secondary w-100 mt-2">
             Xem tất cả
         </a>
@@ -166,17 +230,17 @@
 
 <div class="main-content" id="mainContent">
 
-<div class="container py-4">
+<div class="container-fluid py-4">
 
     <h2 class="text-center mb-4">
-         Thống kê nhà hàng
+        Thống kê nhà hàng
     </h2>
 
     <!-- CARD -->
 
     <div class="row g-4">
 
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="box">
                 <h5>Tổng doanh thu</h5>
 
@@ -186,9 +250,9 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="box">
-                <h5>Tiền Mặt</h5>
+                <h5>Tiền mặt</h5>
 
                 <div class="number">
                     {{ tien_mat|intcomma }} đ
@@ -196,9 +260,9 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="box">
-                <h5>Chuyển Khoản</h5>
+                <h5>Chuyển khoản</h5>
 
                 <div class="number">
                     {{ chuyen_khoan|intcomma }} đ
@@ -212,7 +276,7 @@
 
     <div class="row g-4 mt-2">
 
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="box">
                 <h5>Tổng đơn hàng</h5>
 
@@ -222,7 +286,7 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="box">
                 <h5>Đã thanh toán</h5>
 
@@ -232,7 +296,7 @@
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-12 col-md-4">
             <div class="box">
                 <h5>Doanh thu hôm nay</h5>
 
@@ -250,12 +314,12 @@
 
         <!-- BAR -->
 
-        <div class="col-md-6">
+        <div class="col-12 col-lg-6">
 
             <div class="box1">
 
                 <h5 class="mb-3">
-                     Doanh thu từng món
+                    Doanh thu từng món
                 </h5>
 
                 <div class="chart-container">
@@ -268,12 +332,12 @@
 
         <!-- PIE -->
 
-        <div class="col-md-6">
+        <div class="col-12 col-lg-6">
 
             <div class="box1">
 
                 <h5 class="mb-3">
-                     Doanh thu theo loại món
+                    Doanh thu theo loại món
                 </h5>
 
                 <div class="chart-container">
@@ -285,33 +349,81 @@
         </div>
 
     </div>
+
+    <!-- LINE CHART -->
+
     <div class="card mt-4">
         <div class="card-body">
+
             <h5>Doanh thu theo ngày</h5>
-            <canvas id="revenueChart"></canvas>
+
+            <div class="chart-container">
+                <canvas id="revenueChart"></canvas>
+            </div>
+
         </div>
     </div>
+
     {{ doanh_thu_theo_ngay|json_script:"revenue-data" }}
+
 </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
-<script>
 
-    // ===== SIDEBAR =====
+<script>
+     //Ktra ngày
+     const filterForm = document.getElementById("filterForm");
+
+     const startDateInput =
+         document.querySelector('input[name="start_date"]');
+ 
+     const endDateInput =
+         document.querySelector('input[name="end_date"]');
+ 
+     filterForm.addEventListener("submit", function(e){
+ 
+         const startDate = startDateInput.value;
+         const endDate = endDateInput.value;
+ 
+         if(startDate && endDate){
+ 
+             const start = new Date(startDate);
+             const end = new Date(endDate);
+ 
+             if(start > end){
+ 
+                 e.preventDefault();
+ 
+                 alert("Ngày bắt đầu không được lớn hơn ngày kết thúc!");
+ 
+             }
+ 
+         }
+ 
+     });
+
+    //SIDEBAR
+
     const sidebar = document.getElementById("sidebar");
     const mainContent = document.getElementById("mainContent");
     const toggleBtn = document.getElementById("toggleSidebar");
 
     toggleBtn.onclick = function () {
-        sidebar.classList.toggle("closed");
-        mainContent.classList.toggle("full");
+
+        if(window.innerWidth <= 768){
+            sidebar.classList.toggle("show");
+        }else{
+            sidebar.classList.toggle("closed");
+            mainContent.classList.toggle("full");
+        }
+
     }
 
-    // =====================
-    // BAR CHART (MÓN BÁN CHẠY)
-    // =====================
+
+    // BAR CHART
+
     const monLabels = [
         {% for item in mon_ban_chay %}
             "{{ item.mon_an__ten_mon }}",
@@ -341,6 +453,7 @@
         },
         options: {
             responsive: true,
+            maintainAspectRatio:false,
             plugins: {
                 legend: { display: false },
                 tooltip: {
@@ -363,9 +476,8 @@
         }
     });
 
-    // =====================
-    // PIE CHART (LOẠI MÓN)
-    // =====================
+    // PIE CHART
+
     const loaiLabels = [
         {% for item in doanh_thu_loai %}
             "{{ item.mon_an__loai_mon__ten_loai }}",
@@ -388,6 +500,7 @@
         },
         options: {
             responsive: true,
+            maintainAspectRatio:false,
             plugins: {
                 tooltip: {
                     callbacks: {
@@ -404,9 +517,8 @@
         }
     });
 
-    // =====================
-    // LINE CHART (DOANH THU THEO NGÀY)
-    // =====================
+    // LINE CHART
+
     const labels = [
         {% for item in doanh_thu_theo_ngay %}
             "{{ item.ngay }}",
@@ -431,9 +543,14 @@
                 tension: 0.3,
                 fill: true
             }]
+        },
+        options:{
+            responsive:true,
+            maintainAspectRatio:false
         }
     });
 
 </script>
+
 </body>
 </html>
