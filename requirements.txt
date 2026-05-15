@@ -11,3 +11,4 @@ packaging==26.0
 qrcode[pil]
 Pillow
 cloudinary==1.41.0
+django-cloudinary-storage
