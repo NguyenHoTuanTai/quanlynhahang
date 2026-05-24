@@ -392,12 +392,18 @@ class Voucher(models.Model):
         verbose_name_plural = 'Quản lý Mã giảm giá'
 
     def clean(self):
-        # Ràng buộc logic thông minh cho Voucher
-        if self.loai_giam == 'PhanTram' and self.gia_tri > 100:
-            raise ValidationError({'gia_tri': 'Giá trị giảm theo phần trăm không được vượt quá 100%.'})
-        
-        if self.so_luong_da_dung > self.so_luong_gioi_han:
-            raise ValidationError({'so_luong_da_dung': 'Số lượng đã dùng không thể lớn hơn số lượng giới hạn.'})
+            # 1. Gọi hàm clean mặc định của Django để chạy các bộ chặn số âm trước
+            super().clean()
+            
+            # 2. Kiểm tra nếu người dùng nhập số lượng giới hạn hợp lệ (không trống, không âm)
+            # thì mới chạy logic so sánh nâng cao bên dưới.
+            if self.so_luong_gioi_han is not None and self.so_luong_gioi_han >= 1:
+                
+                if self.so_luong_da_dung > self.so_luong_gioi_han:
+                    # Gán lỗi trực tiếp vào ô 'so_luong_gioi_han' (ô này có hiển thị trên form admin)
+                    raise ValidationError({
+                        'so_luong_gioi_han': 'Số lượng đã dùng hiện tại không thể lớn hơn số lượng giới hạn mới.'
+                    })
 
     def hop_le(self):
         if not self.kich_hoat:

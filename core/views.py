@@ -1,6 +1,6 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from .models import MonAn, LoaiMon, DanhGia, ThanhToan
-from .models import Ban, DatBan, DonHang, ChiTietDonHang, User, Profile, DanhGia, Voucher, ThanhToan
+from .models import Ban, DatBan, DonHang, ChiTietDonHang, User, Profile, DanhGia, Voucher, ThanhToan, HangThanhVien
 from django.http import HttpResponse, JsonResponse
 from django.contrib import messages
 from datetime import datetime, timedelta
@@ -659,7 +659,7 @@ def tai_khoan(request):
     profile, created = Profile.objects.get_or_create(user=request.user)
 
     if request.method == "POST":
-        # NHÁNH 1: XỬ LÝ CẬP NHẬT THÔNG TIN CÁ NHÂN
+        # XỬ LÝ CẬP NHẬT THÔNG TIN CÁ NHÂN
         if "doi_mat_khau" not in request.POST:
             request.user.email = request.POST.get("email")
             profile.so_dien_thoai = request.POST.get("so_dien_thoai")
@@ -670,7 +670,7 @@ def tai_khoan(request):
 
             messages.success(request, "Cập nhật thành công!")
         
-        # NHÁNH 2: XỬ LÝ ĐỔI MẬT KHẨU
+        # XỬ LÝ ĐỔI MẬT KHẨU
         else:
             old = request.POST.get("mat_khau_cu")
             new = request.POST.get("mat_khau_moi")
@@ -685,7 +685,19 @@ def tai_khoan(request):
                 return redirect("/login/")
             else:
                 messages.error(request, "Mật khẩu cũ không đúng!")
+    # Tự động cập nhật hạng dựa vào điểm tích lũy
+    diem = profile.diem_tich_luy
 
+    if diem >= 1500:
+        hang = HangThanhVien.objects.get(id=3)  # Kim cương
+    elif diem >= 500:
+        hang = HangThanhVien.objects.get(id=2)  # Vàng
+    else:
+        hang = HangThanhVien.objects.get(id=1)  # Bạc
+
+    if profile.hang_thanh_vien != hang:
+        profile.hang_thanh_vien = hang
+        profile.save()
     return render(request, "tai_khoan.html", {"profile": profile})
 
 def danh_gia_view(request):
